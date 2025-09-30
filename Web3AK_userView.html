@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Web3AK 유저 조직도 뷰어 (실시간 마인드맵 형식)</title>
+    <script src="https://unpkg.com/gojs@2.3.11/release/go.js"></script>
+    <style>
+        #orgChartDiv {
+            width: 100%;
+            height: 85vh; 
+            background-color: #FAFAFA;
+            border: 1px solid #ccc;
+        }
+        body { 
+            font-family: Arial, sans-serif; 
+            text-align: center;
+            margin: 0; 
+            padding: 0;
+            position: relative; 
+        }
+        .node-info { 
+            position: absolute; 
+            top: 60px; 
+            right: 40px;
+            max-width: 380px; 
+            text-align: left; 
+            
+            padding: 15px; 
+            border: 1px solid #ddd; 
+            background-color: rgba(255, 255, 255, 0.95); 
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            z-index: 100; 
+        }
+        
+        /* ✅ 새로 추가된 기능 안내 박스 스타일 */
+        .feature-info {
+            position: absolute; 
+            top: 60px; 
+            left: 15px; 
+            max-width: 380px; 
+            text-align: left; 
+            
+            padding: 15px; 
+            border: 1px solid #ccc; 
+            background-color: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+            
+            font-size: 13px;
+        }
+        .feature-info ul {
+            list-style-type: none;
+            padding-left: 0;
+            margin-bottom: 0;
+        }
+        .feature-info li {
+            margin-bottom: 5px;
+        }
+        
+    </style>
+</head>
+<body>
+    <h2>Web3 유저 조직도 (실시간 마인드맵 뷰)</h2>
+    
+    <div class="feature-info">
+        <h3>🚀 웹 앱 핵심 기능</h3>
+        <ul>
+            <li>**데이터 연동:** Google Sheets 데이터 실시간 자동 반영</li>
+            <li>**노드 상세:** 클릭 시 우측 상단에 지갑 주소 등 상세 정보 표시</li>
+            <li>**기본 조작:** 조직도 확대/축소 및 이동</li>
+        </ul>
+    </div>
+
+    <div class="node-info" id="selectedNodeInfo">노드를 선택하면 상세 정보가 표시됩니다.</div>
+
+    <div id="orgChartDiv"></div>
+
+    <script>
+        const API_URL = "https://script.google.com/macros/s/AKfycbyiqN24ws77h9-DgeN3LkuEiK39azcSZXsS6_L8S_UvvcwUJmY0b-2wLK_xzKtmmNqRlQ/exec"; 
+
+        const $ = go.GraphObject.make; 
+
+        function init() {
+            const myDiagram =
+                $(go.Diagram, "orgChartDiv", 
+                {
+                    initialAutoScale: go.Diagram.Uniform,
+                    layout: $(go.TreeLayout,
+                                { angle: 90, nodeSpacing: 10, layerSpacing: 50 }),
+                    "undoManager.isEnabled": true,
+                    "click": function(e) {
+                        document.getElementById("selectedNodeInfo").innerHTML = "노드를 선택하면 상세 정보가 표시됩니다.";
+                    }
+                });
+
+    myDiagram.nodeTemplate = 
+        $(go.Node, "Auto",
+            { selectionAdornmentTemplate: nodeSelectionAdornmentTemplate },
+            new go.Binding("location", "loc", go.Point.parse).makeTwoWay(go.Point.stringify),
+            {
+                click: function(e, node) {
+                    showNodeDetails(node.data);
+                }
+            },
+            $(go.Shape, "RoundedRectangle",
+                { fill: "#3366cc", stroke: "#224488", strokeWidth: 2 },
+                new go.Binding("fill", "isRoot", function(isRoot) { return isRoot ? "#ff9933" : "#66bb6a"; })),
+            
+            $(go.TextBlock, "Default Info",
+                { 
+                    margin: 8, 
+                    font: "bold 14pt Arial, sans-serif",
+                    stroke: "white", 
+                    textAlign: "center" 
+                },
+                new go.Binding("text", "", function(data) {
+                    const name = data.유저_이름 || '이름 없음';
+                    const userId = data.유저_ID;
+                    
+                    let totalCountLine = "";
+                    if (data.총_하위_수 && data.총_하위_수 > 0) {
+                        totalCountLine = `\n(총 ${data.총_하위_수}명)`;
+                    }
+
+                    return `${name}\n${userId}${totalCountLine}`; 
+                })
+            )
+        );
+
+            myDiagram.linkTemplate = 
+                $(go.Link, go.Link.Orthogonal, { corner: 5 },
+                    $(go.Shape, { strokeWidth: 1.5, stroke: "#555" }));
+            
+            fetchDataAndBuildChart(myDiagram);
+        }
+
+        function fetchDataAndBuildChart(diagram) {
+            fetch(API_URL)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("API 호출 실패: " + response.statusText);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (!Array.isArray(data)) {
+                        throw new Error("API 응답 형식이 올바르지 않습니다.");
+                    }
+                    
+                    const nodeDataArray = data.map(item => ({
+                        key: item['본인_지갑_주소'], 
+                        parent: item['상위_노드_지갑_주소'], 
+                        유저_이름: item['유저_이름'] || item['유저_ID'],
+                        유저_ID: item['유저_ID'],
+                        연락처: item['연락처'],
+                        본인_지갑_주소: item['본인_지갑_주소'],
+                        직속_하위_수: item['직속_하위_수'],
+                        총_하위_수: item['총_하위_수'],
+                        isRoot: item['상위_노드_지갑_주소'] === "" 
+                    })).filter(item => item.key); 
+
+                    diagram.model = $(go.TreeModel, { nodeDataArray: nodeDataArray });
+                })
+                .catch(error => {
+                    console.error("데이터 로드 중 오류 발생:", error);
+                    document.getElementById("orgChartDiv").innerHTML = `<p style="color: red;">데이터 로드 오류: API URL(${API_URL})을 확인하거나, Apps Script가 "모든 사용자"에게 공개되었는지 확인하세요. ${error.message}</p>`;
+                });
+        }
+
+        function showNodeDetails(data) {
+            const detailsDiv = document.getElementById("selectedNodeInfo");
+            detailsDiv.innerHTML = `
+                <h3>${data.유저_이름} (${data.유저_ID})</h3>
+                <p><strong>본인 지갑:</strong> ${data.본인_지갑_주소}</p>
+                <p><strong>상위 지갑:</strong> ${data.parent || '없음 (루트)'}</p>
+                <p><strong>연락처:</strong> ${data.연락처}</p>
+                <p><strong>직속 하위:</strong> ${data.직속_하위_수}명, <strong>총 하위 조직:</strong> ${data.총_하위_수}명</p>
+            `;
+        }
+
+        const nodeSelectionAdornmentTemplate =
+            $(go.Adornment, "Auto",
+                $(go.Shape, "RoundedRectangle",
+                    { fill: null, stroke: "dodgerblue", strokeWidth: 3 }),
+                $(go.Placeholder)
+            );
+
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
