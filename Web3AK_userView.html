@@ -193,20 +193,27 @@
             searchInput.addEventListener('keyup', highlightNodes); 
         }
 
-        // 구글 시트 API에서 데이터를 가져와 GoJS 모델을 구성하는 함수
+        // 구글 시트 API에서 데이터를 가져와 GoJS 모델을 구성하는 함수 (진단 보강 로직 적용)
         function fetchDataAndBuildChart(diagram) {
             fetch(API_URL)
                 .then(response => {
                     if (!response.ok) {
+                        // HTTP 응답 코드가 200 OK가 아닐 경우
                         throw new Error("API 호출 실패: " + response.statusText);
                     }
                     return response.json();
                 })
                 .then(data => {
                     if (!Array.isArray(data)) {
-                        throw new Error("API 응답 형식이 올바르지 않습니다.");
+                        throw new Error("API 응답 형식이 올바르지 않습니다. (배열이 아님)");
                     }
                     
+                    // **✅ 진단 보강: 데이터 배열이 비어있는 경우 경고 출력**
+                    if (data.length === 0) {
+                        document.getElementById("orgChartDiv").innerHTML = `<p style="color: orange; padding: 20px;">**경고:** API 통신은 성공했으나, Google Sheets에 노드를 생성할 **데이터 행이 하나도 없습니다.**</p>`;
+                        return;
+                    }
+
                     // JSON 데이터를 GoJS 모델 형식으로 변환 (isHighlighted 기본값 추가)
                     const nodeDataArray = data.map(item => ({
                         key: item['본인_지갑_주소'], 
@@ -225,8 +232,9 @@
                     diagram.model = $(go.TreeModel, { nodeDataArray: nodeDataArray });
                 })
                 .catch(error => {
+                    // **❌ 통신 실패 또는 응답 데이터 구조 오류 시 빨간색 오류 메시지 출력**
                     console.error("데이터 로드 중 오류 발생:", error);
-                    document.getElementById("orgChartDiv").innerHTML = `<p style="color: red; padding: 20px;">데이터 로드 오류: API URL(${API_URL})을 확인하거나, Apps Script가 "모든 사용자"에게 공개되었는지 확인하세요. ${error.message}</p>`;
+                    document.getElementById("orgChartDiv").innerHTML = `<p style="color: red; padding: 20px;">**데이터 로드 오류:** API URL(${API_URL})을 확인하거나, Apps Script가 "모든 사용자"에게 공개되었는지 확인하세요. ${error.message}</p>`;
                 });
         }
 
