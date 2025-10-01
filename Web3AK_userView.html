@@ -66,7 +66,7 @@
 
         /* [3] 기타 UI 스타일 (웹/데스크톱 기본 레이아웃) */
         
-        /* **[수정]** 상세 정보 박스: 닫기 버튼 배치를 위해 position: relative 추가 */
+        /* 상세 정보 박스: position: absolute (겹침 출력) */
         .node-info { 
             position: absolute; 
             top: 95px; 
@@ -76,9 +76,8 @@
             border: 1px solid #ddd; background-color: rgba(255, 255, 255, 0.95); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
             z-index: 100; transition: all 0.3s ease; 
             display: none; 
-            /* 닫기 버튼을 위한 상대 위치 설정 */
             position: relative; 
-            padding-top: 30px; /* 닫기 버튼 공간 확보 */
+            padding-top: 30px; 
         }
         .node-info button { 
             background-color: #ff6f61; color: white; border: none; padding: 8px 12px; cursor: pointer; border-radius: 4px; margin-top: 10px;
@@ -90,19 +89,18 @@
             overflow-wrap: break-word; 
         }
         
-        /* **[수정]** 기능 안내 박스: 닫기 버튼 배치를 위해 position: relative 추가 */
+        /* 기능 안내 박스: position: absolute (겹침 출력, 우측 고정) */
         .feature-info {
             position: absolute; 
             top: 95px; 
-            right: 40px; 
+            right: 40px; /* ⭐ 수정: 웹 환경에서 우측 40px 고정 */
             left: auto; 
             max-width: 400px; text-align: left; padding: 15px; 
             border: 1px solid #ccc; background-color: rgba(255, 255, 255, 0.95); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             z-index: 100; font-size: 13px; transition: all 0.3s ease; 
             display: none; 
-            /* 닫기 버튼을 위한 상대 위치 설정 */
             position: relative; 
-            padding-top: 30px; /* 닫기 버튼 공간 확보 */
+            padding-top: 30px; 
         }
         .feature-info ul {
             list-style-type: none; padding-left: 0; margin-bottom: 0;
@@ -111,7 +109,7 @@
             margin-bottom: 5px;
         }
         
-        /* 💡 [추가] 닫기 버튼 스타일 정의 */
+        /* 닫기 버튼 스타일 정의 */
         .close-btn {
             position: absolute;
             top: 5px;
@@ -170,13 +168,13 @@
             .search-container button:not(#clearSearchButton):not(#toggleFeatureButton) { margin-right: 2%; }
             .mobile-toggle-group { display: none; }
             
-            /* 기능 안내 박스 (모바일: 하단 고정) */
+            /* 기능 안내 박스 (모바일: 하단 고정 - 우측 정렬 유지) */
             .feature-info { 
                 position: fixed; 
                 bottom: 10px; 
                 top: auto; 
-                left: 10px; 
-                right: 10px;
+                left: 10px;
+                right: 10px; /* ⭐ 수정: 모바일 환경에서 우측 10px 고정 */
                 max-width: none; 
                 width: auto;
                 padding: 15px;
@@ -186,10 +184,10 @@
                 z-index: 101; 
                 font-size: 13px; 
                 border-radius: 8px;
-                padding-top: 30px; /* 닫기 버튼 공간 확보 */
+                padding-top: 30px; 
             }
             
-            /* 상세 정보 박스 (모바일: 상단 고정) */
+            /* 상세 정보 박스 (모바일: 상단 고정 - 좌우 정렬 유지) */
             .node-info { 
                 position: fixed; 
                 top: 115px; 
@@ -203,7 +201,7 @@
                 z-index: 100;
                 border: 1px solid #ccc;
                 border-radius: 8px;
-                padding-top: 30px; /* 닫기 버튼 공간 확보 */
+                padding-top: 30px; 
             }
         }
     </style>
@@ -284,13 +282,11 @@
             }
         }
         
-        // **[수정]** 기능 안내 박스 닫기 함수 (토글 버튼 상태 초기화 포함)
         function closeFeatureInfo() {
             featureInfoDiv.style.display = 'none';
-            toggleFeatureButton.style.backgroundColor = '#28a745'; // 닫힘: 녹색
+            toggleFeatureButton.style.backgroundColor = '#28a745';
         }
 
-        // **[수정]** 기능 안내 박스 토글 (명시적 닫기 함수 호출로 로직 개선)
         function toggleFeatureInfo() {
             if (selectedNodeInfoDiv.style.display === 'block') {
                  clearNodeInfo();
@@ -298,7 +294,7 @@
             
             if (featureInfoDiv.style.display === 'none' || featureInfoDiv.style.display === '') {
                 featureInfoDiv.style.display = 'block';
-                toggleFeatureButton.style.backgroundColor = '#dc3545'; // 열림: 빨강
+                toggleFeatureButton.style.backgroundColor = '#dc3545';
             } else {
                 closeFeatureInfo();
             }
