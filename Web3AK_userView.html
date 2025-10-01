@@ -7,7 +7,6 @@
     
     <script>
     if (typeof Object.assign !== 'function') {
-      // Object.assign 구현: 브라우저가 이 기능을 지원하지 않을 경우 수동으로 정의
       Object.defineProperty(Object, "assign", {
         value: function assign(target, varArgs) {
           'use strict';
@@ -22,7 +21,6 @@
 
             if (nextSource !== null && nextSource !== undefined) {
               for (var nextKey in nextSource) {
-                // 상속된 속성은 건너뜁니다.
                 if (Object.prototype.hasOwnProperty.call(nextSource, nextKey)) {
                   to[nextKey] = nextSource[nextKey];
                 }
@@ -40,20 +38,8 @@
     <script src="https://unpkg.com/gojs@2.3.11/release/go.js"></script> 
     <style>
         /* (스타일 시트 내용은 이전과 동일합니다. 변경 없음) */
-        #orgChartDiv {
-            width: 100%;
-            height: 85vh; 
-            background-color: #FAFAFA;
-            border: 1px solid #ccc;
-        }
-        body { 
-            font-family: Arial, sans-serif; 
-            text-align: center;
-            margin: 0; 
-            padding: 0;
-            position: relative; 
-        }
-        /* ... 이하 스타일 유지 ... */
+        #orgChartDiv { width: 100%; height: 85vh; background-color: #FAFAFA; border: 1px solid #ccc; }
+        body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 0; position: relative; }
         .node-info { position: absolute; top: 70px; left: 10px; max-width: 380px; text-align: left; padding: 15px; border: 1px solid #ddd; background-color: rgba(255, 255, 255, 0.95); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); z-index: 100; }
         .feature-info { position: absolute; top: 95px; right: 40px; max-width: 400px; text-align: left; padding: 15px; border: 1px solid #ccc; background-color: rgba(255, 255, 255, 0.95); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); z-index: 100; font-size: 13px; display: none; }
         .feature-info.active { display: block; }
@@ -98,9 +84,8 @@
     <script>
         const API_URL = "https://script.google.com/macros/s/AKfycbyiqN24ws77h9-DgeN3LkuEiK39azcSZXsS6_L8S_UvvcwUJmY0b-2wLK_xzKtmmNqRlQ/exec"; 
         
-        // GoJS 객체 로딩 여부 확인
         if (typeof go === 'undefined') {
-            document.getElementById("orgChartDiv").innerHTML = `<p style="color: red; padding: 20px;">**치명적 오류:** GoJS 라이브러리가 로드되지 않았거나, 브라우저 호환성 문제(Object.assign 오류 등)로 인해 초기화에 실패했습니다. 최신 Chrome, Firefox 또는 Edge 브라우저를 사용해 보십시오.</p>`;
+            document.getElementById("orgChartDiv").innerHTML = `<p style="color: red; padding: 20px;">**치명적 오류:** GoJS 라이브러리가 로드되지 않았거나, 브라우저 호환성 문제로 인해 초기화에 실패했습니다. 최신 브라우저를 사용해 보십시오.</p>`;
         } else {
             const $ = go.GraphObject.make; 
             let myDiagram = null; 
@@ -119,7 +104,7 @@
                         initialContentAlignment: go.Spot.TopCenter 
                     });
 
-                // --- 노드 및 링크 템플릿 정의 (변경 없음) ---
+                // --- 노드 템플릿 정의 ---
                 myDiagram.nodeTemplate = 
                     $(go.Node, "Auto",
                         { selectionAdornmentTemplate: nodeSelectionAdornmentTemplate },
@@ -132,11 +117,15 @@
                         },
                         $(go.Shape, "RoundedRectangle",
                             { name: "shapeElement", strokeWidth: 2, stroke: "#224488" },
+                            
+                            // ✅ [핵심 수정] 3. ofData() 구문을 제거했습니다.
                             new go.Binding("fill", "isHighlighted", function(h, shape) {
-                                if (h) return "#FF9933"; 
+                                if (h) return "#FF9933"; // 검색 시 강조 색상
+                                // isRoot 속성을 사용하여 원래의 색상으로 복구
                                 return shape.part.data.isRoot ? "#ff9933" : "#66bb6a"; 
-                            })
+                            }) // <- 여기에 ofData()가 없어야 합니다.
                         ),
+                        
                         $(go.TextBlock, "Default Info",
                             { margin: 8, font: "bold 14pt Arial, sans-serif", stroke: "white", textAlign: "center" },
                             new go.Binding("text", "", function(data) {
@@ -151,9 +140,9 @@
                 myDiagram.linkTemplate = 
                     $(go.Link, go.Link.Orthogonal, { corner: 5 },
                         $(go.Shape, { strokeWidth: 1.5, stroke: "#555" }));
-                // --- 노드 및 링크 템플릿 정의 끝 ---
+                // --- 노드 템플릿 정의 끝 ---
                 
-                // ✅ 최종 중앙 정렬 로직 (LayoutCompleted 리스너)
+                // 중앙 정렬 로직 (이전과 동일, setViewportBounds 유지)
                 myDiagram.addDiagramListener("LayoutCompleted", function(e) {
                     const diagram = e.diagram;
                     const rootData = diagram.model.nodeDataArray.find(d => d.isRoot);
@@ -164,12 +153,10 @@
                         if (rootNode) {
                             diagram.startTransaction("Initial Root Zoom");
                             
-                            // Root Node와 그 직속 자식 노드들만 포함하는 집합을 생성합니다.
                             const initialGroup = new go.Set();
                             initialGroup.add(rootNode);
                             
                             rootNode.findTreeChildrenNodes().each(child => {
-                                // 레벨 1 자식만 포함
                                 if (child.data.parent === rootNode.data.key) {
                                     initialGroup.add(child);
                                 }
@@ -177,10 +164,8 @@
                             
                             if (initialGroup.count > 0) {
                                 const bounds = diagram.computeBounds(initialGroup);
-                                // setViewportBounds를 사용하여 중앙 이동 + 확대/축소
                                 diagram.setViewportBounds(bounds, diagram.scale * 1.1);
                             } else {
-                                // 직속 자식이 없으면 Root 노드만 중앙에 배치
                                 const rootBounds = rootNode.actualBounds;
                                 diagram.scrollToRect(rootBounds); 
                             }
