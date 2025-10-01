@@ -84,13 +84,20 @@
     <script>
         const API_URL = "https://script.google.com/macros/s/AKfycbyiqN24ws77h9-DgeN3LkuEiK39azcSZXsS6_L8S_UvvcwUJmY0b-2wLK_xzKtmmNqRlQ/exec"; 
         
+        // GoJS 정의 유무를 init() 밖에서도 확인 (1차 검증)
         if (typeof go === 'undefined') {
-            document.getElementById("orgChartDiv").innerHTML = `<p style="color: red; padding: 20px;">**치명적 오류:** GoJS 라이브러리가 로드되지 않았거나, 브라우저 호환성 문제로 인해 초기화에 실패했습니다. 최신 브라우저를 사용해 보십시오.</p>`;
+            document.getElementById("orgChartDiv").innerHTML = `<p style="color: red; padding: 20px;">**치명적 초기 오류:** GoJS 라이브러리 로드 실패. (네트워크 또는 파일 경로 확인 필요)</p>`;
         } else {
             const $ = go.GraphObject.make; 
             let myDiagram = null; 
             
             function init() {
+                // ✅ 3. init() 내에서 GoJS 객체 유효성 재검증 (2차 검증 및 실행 안정화)
+                if (typeof go === 'undefined') {
+                     console.error("GoJS 객체 정의 실패. init 실행 중단.");
+                     return; 
+                }
+                
                 myDiagram =
                     $(go.Diagram, "orgChartDiv", 
                     {
@@ -104,7 +111,7 @@
                         initialContentAlignment: go.Spot.TopCenter 
                     });
 
-                // --- 노드 템플릿 정의 ---
+                // --- 노드 템플릿 정의 (오류 제거된 상태 유지) ---
                 myDiagram.nodeTemplate = 
                     $(go.Node, "Auto",
                         { selectionAdornmentTemplate: nodeSelectionAdornmentTemplate },
@@ -118,12 +125,11 @@
                         $(go.Shape, "RoundedRectangle",
                             { name: "shapeElement", strokeWidth: 2, stroke: "#224488" },
                             
-                            // ✅ [핵심 수정] 3. ofData() 구문을 제거했습니다.
+                            // fill 바인딩: ofData() 구문이 없는 올바른 형태
                             new go.Binding("fill", "isHighlighted", function(h, shape) {
-                                if (h) return "#FF9933"; // 검색 시 강조 색상
-                                // isRoot 속성을 사용하여 원래의 색상으로 복구
+                                if (h) return "#FF9933"; 
                                 return shape.part.data.isRoot ? "#ff9933" : "#66bb6a"; 
-                            }) // <- 여기에 ofData()가 없어야 합니다.
+                            })
                         ),
                         
                         $(go.TextBlock, "Default Info",
@@ -142,7 +148,7 @@
                         $(go.Shape, { strokeWidth: 1.5, stroke: "#555" }));
                 // --- 노드 템플릿 정의 끝 ---
                 
-                // 중앙 정렬 로직 (이전과 동일, setViewportBounds 유지)
+                // 중앙 정렬 로직 (setViewportBounds 유지)
                 myDiagram.addDiagramListener("LayoutCompleted", function(e) {
                     const diagram = e.diagram;
                     const rootData = diagram.model.nodeDataArray.find(d => d.isRoot);
