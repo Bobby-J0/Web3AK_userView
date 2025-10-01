@@ -78,6 +78,11 @@
             font-family: 'Inter', sans-serif;
             pointer-events: none; /* 텍스트 위에서 드래그 가능하도록 설정 */
         }
+        
+        /* 테이블 행 커서 포인터 설정 */
+        #data-table tbody tr {
+            cursor: pointer;
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen p-4 sm:p-8">
@@ -108,7 +113,7 @@
                             <option value="유저_ID">ID</option>
                             <option value="연락처">연락처</option>
                             <option value="직속_하위_수">직대</option>
-                            <option value="총_하위_수">하위 수</option>
+                            <option value="총_하위_수">총 하위</option>
                         </select>
                         <i data-lucide="chevron-down" class="w-5 h-5 text-gray-400 absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none"></i>
                     </div>
@@ -177,6 +182,12 @@
         
     </div>
 
+    <!-- 상세 정보 박스 (우측 하단 고정 오버레이로 위치 수정) -->
+    <div id="detail-box" class="fixed right-4 bottom-4 w-full max-w-sm bg-white rounded-xl shadow-2xl border-t-4 border-indigo-500 transition-transform duration-300 transform translate-y-full opacity-0 z-40 hidden">
+        <!-- Content will be injected here -->
+    </div>
+
+
     <script>
         // Apps Script 웹 앱 URL (★★★★★ 고객님이 제공한 최종 URL로 업데이트됨 ★★★★★)
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxutUIMVFENC6qT4kLeTUgkZxw31Mcu8mD_pHw5mMDj3OPixX-WycckTq3jl2wsepzjqw/exec";
@@ -200,13 +211,127 @@
         const refreshButton = document.getElementById('refresh-button');
         const searchInput = document.getElementById('search-input');
         const clearSearchButton = document.getElementById('clear-search-button');
-        
+        const detailBox = document.getElementById('detail-box'); // 상세 정보 박스 DOM 요소
+
         // 아이콘 초기화 (Lucide)
         window.onload = () => {
              lucide.createIcons();
              fetchData();
         };
         
+        // =========================================================
+        // 상세 정보 박스 상호작용 로직
+        // =========================================================
+        
+        /**
+         * 노드 상세 정보 박스를 표시합니다.
+         */
+        function showDetailBox(data) {
+            if (data['유저_ID'] === 'ROOT') return; // 가상 루트 노드는 표시하지 않음
+            
+            // 컨텐츠 포맷 (줄바꿈 및 자동 줄바꿈을 위해 break-words 사용)
+            const content = `
+                <div class="p-6 relative">
+                    <!-- 닫기 버튼 -->
+                    <button class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 transition z-50" 
+                            onclick="closeDetailBox()">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+
+                    <!-- 제목: 성명 (ID) -->
+                    <h3 class="text-xl font-extrabold text-indigo-700 mb-4">${data['유저_이름']} (${data['유저_ID']})</h3>
+
+                    <!-- 연락처 -->
+                    <p class="text-sm text-gray-600 mb-4">
+                        <span class="font-semibold text-gray-800">연락처:</span> ${data['연락처'] || '정보 없음'}
+                    </p>
+
+                    <!-- 지갑 주소 섹션 -->
+                    <div class="space-y-3">
+                        <!-- 본인 지갑 주소 -->
+                        <div class="text-sm text-gray-600 break-words">
+                            <span class="font-semibold text-gray-800 block sm:inline">본인 지갑주소:</span> 
+                            <span class="text-indigo-500 block">${data['본인_지갑_주소']}</span>
+                        </div>
+                        
+                        <!-- 상위 지갑 주소 -->
+                        <div class="text-sm text-gray-600 break-words">
+                            <span class="font-semibold text-gray-800 block sm:inline">상위 지갑주소:</span> 
+                            <span class="text-indigo-500 block">${data['상위_노드_지갑_주소'] || '없음 (최상위 노드)'}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 pt-4 border-t border-gray-100 text-xs text-gray-400">
+                        직속 하위: ${data['직속_하위_수']}명 | 총 하위: ${data['총_하위_수']}명
+                    </div>
+                </div>
+            `;
+
+            detailBox.innerHTML = content;
+            lucide.createIcons(); // 동적으로 추가된 아이콘 다시 렌더링
+            
+            // 박스 보이기 및 슬라이드 효과 적용 (아래에서 위로)
+            detailBox.classList.remove('hidden');
+            void detailBox.offsetWidth; // Force reflow for transition
+            detailBox.classList.remove('translate-y-full', 'opacity-0');
+            detailBox.classList.add('translate-y-0', 'opacity-100');
+        }
+
+        /**
+         * 유저 ID를 기반으로 상세 정보 박스를 표시하는 헬퍼 함수
+         */
+        function showDetailBoxById(userId) {
+            // filteredData에서 해당 ID를 가진 사용자 객체를 찾음
+            const data = filteredData.find(u => u['유저_ID'] === userId);
+            if (data) {
+                showDetailBox(data);
+            }
+        }
+        
+        /**
+         * 테이블 행 클릭 이벤트 핸들러
+         * 이벤트 버블링을 막아 상세 정보 박스가 열리자마자 닫히는 것을 방지 (이전 수정 사항 유지)
+         */
+        function handleTableRowClick(event, userId) {
+            event.stopPropagation(); // document 클릭 이벤트로의 전파를 막습니다.
+            showDetailBoxById(userId);
+        }
+
+        /**
+         * 노드 상세 정보 박스를 닫습니다. (X 버튼 클릭 또는 배경 클릭 시 호출)
+         */
+        function closeDetailBox() {
+            // 슬라이드 효과 적용 (위에서 아래로)
+            detailBox.classList.remove('translate-y-0', 'opacity-100');
+            detailBox.classList.add('translate-y-full', 'opacity-0');
+
+            // 트랜지션 완료 후 숨김 (300ms)
+            setTimeout(() => {
+                detailBox.classList.add('hidden');
+                detailBox.innerHTML = ''; // 컨텐츠 지우기
+            }, 300);
+        }
+
+        /**
+         * 문서 전체에 클릭 리스너를 추가하여 상세 박스 외의 영역을 클릭하면 닫히도록 처리
+         */
+        document.addEventListener('click', (event) => {
+            // 박스가 닫혀있거나 닫히는 중이면 로직 실행 안함
+            if (detailBox.classList.contains('hidden') || detailBox.classList.contains('opacity-0')) return;
+
+            // 클릭된 요소가 상세 박스 자체 또는 그 안에 포함된 요소인지 확인
+            const isClickedInsideBox = detailBox.contains(event.target);
+            
+            // 상세 박스 밖을 클릭했다면 닫기
+            if (!isClickedInsideBox) {
+                closeDetailBox();
+            }
+        });
+
+        // =========================================================
+        // 기존 데이터 및 UI 로직 
+        // =========================================================
+
         // 한글 판별 헬퍼 함수
         function isHangul(char) {
             if (!char) return false;
@@ -374,7 +499,7 @@
                 { key: '유저_이름', label: '성명' }, 
                 { key: '연락처', label: '연락처' },
                 { key: '직속_하위_수', label: '직대' }, 
-                { key: '총_하위_수', label: '하위 수' } 
+                { key: '총_하위_수', label: '총 하위' } 
             ];
 
             if (data.length === 0) {
@@ -411,18 +536,23 @@
                 `;
             }).join('');
 
-            tableBody.innerHTML = data.map(user => `
-                <tr class="hover:bg-indigo-50 transition duration-150 ease-in-out">
-                    ${displayHeaders.map(item => { 
-                        const displayValue = user[item.key];
-                        return `
-                            <td class="px-6 py-4 text-sm font-medium text-gray-900 text-center whitespace-nowrap">
-                                ${displayValue}
-                            </td>
-                        `;
-                    }).join('')}
-                </tr>
-            `).join('');
+            tableBody.innerHTML = data.map(user => {
+                // 테이블 행 클릭 이벤트 핸들러 추가: handleTableRowClick 함수를 사용하여 event와 ID를 전달
+                const rowClick = `onclick="handleTableRowClick(event, '${user['유저_ID']}')"`;
+                
+                return `
+                    <tr class="hover:bg-indigo-50 transition duration-150 ease-in-out" ${rowClick}>
+                        ${displayHeaders.map(item => { 
+                            const displayValue = user[item.key];
+                            return `
+                                <td class="px-6 py-4 text-sm font-medium text-gray-900 text-center whitespace-nowrap">
+                                    ${displayValue}
+                                </td>
+                            `;
+                        }).join('')}
+                    </tr>
+                `;
+            }).join('');
             
             lucide.createIcons(); 
         }
@@ -432,6 +562,7 @@
          */
         function renderTree(data) {
             treeContainer.innerHTML = ''; // 컨테이너 초기화
+            closeDetailBox(); // 트리 렌더링 시 상세 박스 닫기
 
             if (data.length === 0) {
                 treeContainer.innerHTML = '<p class="text-center py-10 text-gray-500">데이터가 없거나 검색 결과가 없습니다.</p>';
@@ -480,7 +611,6 @@
                     '유저_ID': 'ROOT',
                     '직속_하위_수': roots.length,
                     '총_하위_수': data.length,
-                    '총_기여_포인트': 'N/A',
                     children: roots
                 };
             } else if (roots.length === 1) {
@@ -494,15 +624,15 @@
             // D3.js Visualization Setup (Zoom & Pan)
             // -----------------------------------------------------
 
-            const nodeWidth = 180;
-            const nodeHeight = 80;
-            // 노드 간의 수직 간격 (이전 요청대로 100px 유지)
-            const nodeSeparation = 100; 
+            const nodeWidth = 150; 
+            const nodeHeight = 95;  
+            // 노드 간의 수직 간격: 140px 유지
+            const nodeSeparation = 140; 
 
             // SVG 컨테이너 크기 설정 
             const width = treeContainer.clientWidth;
             const height = treeContainer.clientHeight;
-            // 캔버스 경계와 조직도 사이의 마진 (이전 요청대로 1px 유지)
+            // 캔버스 경계와 조직도 사이의 마진 (1px 유지)
             const margin = { top: 1, right: 1, bottom: 1, left: 1 }; 
             
             // 1. SVG 컨테이너 생성
@@ -529,7 +659,7 @@
 
             // 2. 트리 레이아웃 정의 (세로 구조)
             const treeLayout = d3.tree()
-                // 노드 크기 정의: 수평 간격을 190px (노드 폭 180px + 여백 10px)로 줄였습니다.
+                // 노드 크기 정의: 수평 간격을 160px (노드 폭 150px + 여백 10px)로 설정
                 .nodeSize([nodeWidth + 10, nodeSeparation]); 
 
             // 3. 계층 구조 생성 및 레이아웃 적용
@@ -553,7 +683,13 @@
                 .data(treeData.descendants())
                 .enter().append("g")
                 .attr("class", d => "node" + (d.children ? " node--internal" : " node--leaf"))
-                .attr("transform", d => `translate(${d.x},${d.y})`);
+                .attr("transform", d => `translate(${d.x},${d.y})`)
+                // 노드 클릭 이벤트: 전파를 막아 문서 전체 클릭 리스너가 닫기 동작을 수행하지 못하게 함.
+                .on("click", (event, d) => {
+                    event.stopPropagation(); 
+                    showDetailBox(d.data);
+                }) 
+                .attr("cursor", "pointer");
 
             // 6. 카드 배경 (직사각형)
             node.append("rect")
@@ -568,30 +704,33 @@
                 .attr("stroke-width", 3)
                 .attr("filter", "url(#shadow)"); // 그림자 필터 적용 (SVG 필터는 JS 아래에 정의)
                 
-            // 7. 텍스트 콘텐츠 (정보)
-            // A. 이름 및 ID
+            // 7. 텍스트 콘텐츠 (정보) - 3줄 구성: 성명 / ID / 직대-총하위
+            
+            // A. 성명 (Line 1): -15
             node.append("text")
-                .attr("dy", "-18") 
+                .attr("dy", "-15") 
                 .attr("text-anchor", "middle")
-                .attr("class", "text-sm font-bold")
-                .text(d => d.data['유저_이름'] + (d.data['유저_ID'] !== 'ROOT' ? ' (' + d.data['유저_ID'] + ')' : ''))
+                .attr("class", "text-base font-extrabold") // 성명 강조
+                .text(d => d.data['유저_이름'])
                 .attr("fill", "#1F2937"); 
 
-            // B. 직대 및 총 하위
+            // B. ID (Line 2): 5
             node.append("text")
-                .attr("dy", "0") 
+                .attr("dy", "5") 
                 .attr("text-anchor", "middle")
-                .attr("class", "text-xs")
-                .text(d => d.data['유저_ID'] !== 'ROOT' ? `직대: ${d.data['직속_하위_수']} | 총 하위: ${d.data['총_하위_수']}` : `총 루트 하위: ${d.data['직속_하위_수']}`)
-                .attr("fill", "#4B5563");
+                .attr("class", "text-sm font-medium")
+                .text(d => d.data['유저_ID'] !== 'ROOT' ? `${d.data['유저_ID']}` : '전체 조직 루트')
+                .attr("fill", "#4F46E5"); 
                 
-            // C. 포인트
+            // C. 직대 및 총 하위 (Line 3): 25
             node.append("text")
-                .attr("dy", "18") 
+                .attr("dy", "25") 
                 .attr("text-anchor", "middle")
                 .attr("class", "text-xs font-semibold")
-                .text(d => `포인트: ${d.data['총_기여_포인트']}`)
-                .attr("fill", "#DC2626"); 
+                .text(d => d.data['유저_ID'] !== 'ROOT' 
+                    ? `직대: ${d.data['직속_하위_수']} / 총 하위: ${d.data['총_하위_수']}` 
+                    : `총 루트 하위: ${d.data['직속_하위_수']}`)
+                .attr("fill", "#4B5563"); 
             
             // 8. SVG 필터 (카드 그림자 효과) 정의
             const defs = svg.append("defs");
@@ -620,6 +759,7 @@
                 tableView.classList.remove('hidden');
                 treeView.classList.add('hidden');
                 renderTable(filteredData);
+                closeDetailBox(); // 뷰 전환 시 상세 박스 닫기
             } else {
                 tableView.classList.add('hidden');
                 treeView.classList.remove('hidden');
