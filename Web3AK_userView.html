@@ -23,7 +23,7 @@
         /* [2] 노드 상세 정보 (우측 상단) */
         .node-info { 
             position: absolute; 
-            top: 95px; /* 기능탭과 위치 일치 (40px 아래로 조정됨) */
+            top: 95px; /* 40px 아래로 조정된 위치 유지 */
             right: 40px; 
             max-width: 380px; 
             text-align: left; 
@@ -38,8 +38,8 @@
         /* [3] 기능 안내 박스 (좌측 상단) */
         .feature-info {
             position: absolute; 
-            top: 95px; /* 기능탭과 위치 일치 (40px 아래로 조정됨) */
-            left: 20px; /* ✅ 사용자 요청: 좌측으로 20px 이동 */
+            top: 95px; /* 40px 아래로 조정된 위치 유지 */
+            left: 20px; /* ✅ 사용자 요청: 좌측 20px 위치 유지 */
             max-width: 380px; 
             text-align: left; 
             
@@ -73,8 +73,6 @@
             width: 300px; /* 검색창 너비 증가 */
         }
         .search-container button {
-            /* ✅ 실시간 강조 기능으로 인해 검색 버튼은 사용하지 않지만, HTML 구조 유지를 위해 주석 처리 */
-            /* display: none; */ 
             padding: 8px 15px;
             background-color: #007bff;
             color: white;
@@ -148,16 +146,12 @@
                 },
                 // 노드 배경 도형 (RoundedRectangle)
                 $(go.Shape, "RoundedRectangle",
-                    // name을 'shapeElement'로 부여하여 JavaScript에서 접근 가능하게 함
                     { name: "shapeElement", strokeWidth: 2, stroke: "#224488" },
-                    // 1. 루트 노드 색상 바인딩: 최상위 노드 색상 지정
-                    new go.Binding("fill", "isRoot", function(isRoot) { 
-                        return isRoot ? "#ff9933" : "#66bb6a"; 
-                    }),
-                    // 2. ✅ 실시간 강조 색상 바인딩: isHighlighted 속성에 따라 배경색 변경 (검색 강조)
+                    
+                    // ✅ 수정: 실시간 강조 색상 바인딩이 최우선 적용되도록 로직 변경 (노드 배경색 변경)
                     new go.Binding("fill", "isHighlighted", function(isHighlighted, shape) {
-                        if (isHighlighted) return "red"; // 검색 일치 시 빨간색으로 강조
-                        // isHighlighted가 false일 경우, 원래의 isRoot 기반 색상으로 복구
+                        if (isHighlighted) return "#ff0000"; // 검색 일치 시 빨간색으로 강력히 강조
+                        // isHighlighted가 false일 경우, isRoot 속성을 사용하여 원래의 색상으로 복구
                         return shape.part.data.isRoot ? "#ff9933" : "#66bb6a"; 
                     }).ofData() // 노드 데이터 자체의 속성을 참조하도록 설정
                 ),
@@ -193,7 +187,7 @@
             
             // 검색창에 keyup 이벤트 바인딩 (입력 즉시 실시간 강조 함수 호출)
             const searchInput = document.getElementById('searchInput');
-            // ✅ 수정: 'Enter' 키가 아닌 모든 키 입력 시 실시간 강조 함수 호출
+            // 키를 누를 때마다 실시간 강조 함수 호출
             searchInput.addEventListener('keyup', highlightNodes); 
         }
 
@@ -222,7 +216,7 @@
                         직속_하위_수: item['직속_하위_수'],
                         총_하위_수: item['총_하위_수'],
                         isRoot: item['상위_노드_지갑_주소'] === "", 
-                        isHighlighted: false // ✅ 추가: 실시간 검색 강조를 위한 속성
+                        isHighlighted: false // 실시간 검색 강조를 위한 속성
                     })).filter(item => item.key); 
 
                     // 다이어그램 모델 업데이트
@@ -234,7 +228,7 @@
                 });
         }
 
-        // 노드 클릭 시 우측 상단에 상세 정보를 표시하는 함수 (기존 유지)
+        // 노드 클릭 시 우측 상단에 상세 정보를 표시하는 함수
         function showNodeDetails(data) {
             const detailsDiv = document.getElementById("selectedNodeInfo");
             detailsDiv.innerHTML = `
@@ -246,14 +240,14 @@
             `;
         }
         
-        // ✅ 새로 구현된 실시간 검색 강조 함수 (버튼 클릭 없이 동작)
+        // 실시간 검색 강조 함수 (입력 즉시 노드 배경색 변경)
         function highlightNodes() {
             if (!myDiagram || !myDiagram.model) return;
             
             const searchInput = document.getElementById('searchInput');
             const searchText = searchInput.value.toLowerCase().trim();
             const model = myDiagram.model;
-            let firstFoundNode = null; // 첫 번째 검색 일치 노드 저장을 위한 변수
+            let firstFoundNode = null; 
 
             // 트랜잭션 시작: 여러 데이터 변경 작업을 하나로 묶어 성능 최적화
             myDiagram.startTransaction("highlight search results");
@@ -271,7 +265,7 @@
                     if (name.includes(searchText) || userId.includes(searchText) || contact.includes(searchText)) {
                         matches = true;
                     }
-                    // 지갑 주소의 끝 4자리가 일치하는지 확인 (4자리 입력 특수 조건)
+                    // 지갑 주소의 끝 4자리가 일치하는지 확인
                     if (!matches && searchText.length >= 4 && wallet.includes(searchText)) {
                         matches = true;
                     }
@@ -279,6 +273,7 @@
                 
                 // 일치하는 경우 isHighlighted를 true로 설정하고, 아닐 경우 false로 설정
                 if (data.isHighlighted !== matches) {
+                    // 데이터 속성을 변경하여 GoJS의 Binding이 노드 색상을 즉시 업데이트하도록 유도
                     model.setDataProperty(data, "isHighlighted", matches);
                 }
                 
@@ -291,10 +286,10 @@
             // 트랜잭션 종료
             myDiagram.commitTransaction("highlight search results");
             
-            // 검색 결과가 하나라도 있는 경우, 첫 번째 노드를 중심으로 이동하여 시각적 인지도를 높임
+            // 검색 결과가 하나라도 있는 경우, 첫 번째 노드를 중심으로 이동 및 정보 표시
             if (firstFoundNode) {
                 myDiagram.centerPart(firstFoundNode);
-                firstFoundNode.isSelected = true; // 선택 상태 유지
+                firstFoundNode.isSelected = true; // 노드 선택 상태 유지
                 showNodeDetails(firstFoundNode.data); // 상세 정보 표시
             } else {
                 // 검색 결과가 없거나 검색어를 지웠을 때, 모든 선택 상태 해제
