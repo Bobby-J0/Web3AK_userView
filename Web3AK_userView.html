@@ -24,8 +24,8 @@
         /* [2] 노드 상세 정보 (우측 상단 - 데스크톱 기본) */
         .node-info { 
             position: absolute; 
-            top: 95px; 
-            right: 40px; 
+            top: 70px; 
+            left: 10px; 
             max-width: 380px; 
             text-align: left; 
             
@@ -45,7 +45,7 @@
         .feature-info {
             position: absolute; 
             top: 95px; 
-            left: 10px; 
+            right: 40px; 
             max-width: 400px; 
             text-align: left; 
             
@@ -216,7 +216,7 @@
             myDiagram =
                 $(go.Diagram, "orgChartDiv", 
                 {
-                    // initialAutoScale: go.Diagram.Uniform, // 🚨 제거: 전체 노드를 작게 보여주지 않도록 변경
+                    // initialAutoScale: go.Diagram.Uniform, // 전체 노드 확대 금지
                     layout: $(go.TreeLayout, // 조직도(Tree) 레이아웃 설정
                                 { angle: 90, nodeSpacing: 10, layerSpacing: 50 }),
                     "undoManager.isEnabled": true, 
@@ -244,6 +244,7 @@
                     
                     new go.Binding("fill", "isHighlighted", function(h, shape) {
                         if (h) return "#A9A9A9"; 
+                        // isHighlighted가 false일 경우, isRoot 속성을 사용하여 원래의 색상으로 복구
                         return shape.part.data.isRoot ? "#ff9933" : "#66bb6a"; 
                     })
                 ),
@@ -367,40 +368,53 @@
                         본인_지갑_주소: item['본인_지갑_주소'],
                         직속_하위_수: item['직속_하위_수'],
                         총_하위_수: item['총_하위_수'],
-                        isRoot: item['상위_노드_지갑_주소'] === "", 
+                        isRoot: item['상위_노드_지갑_주소'] === "", // 최상위 노드 식별자
                         isHighlighted: false 
                     })).filter(item => item.key); 
 
-                    // 1. 다이어그램 모델 업데이트 (모델 변경은 트랜잭션 외부에서 수행)
+                    // 1. 다이어그램 모델 업데이트
                     diagram.model = $(go.TreeModel, { nodeDataArray: nodeDataArray });
                     
-                    // 2. 🚨 초기 뷰 확대 로직 시작
+                    // 2. 🚨 초기 뷰 확대 로직 시작 (최상위 노드 및 1 Level 자식 기준)
                     diagram.requestUpdate(function() {
                         if (diagram.nodes.count === 0) return;
 
-                        diagram.startTransaction("Initial Zoom");
+                        diagram.startTransaction("Initial Root Zoom");
 
-                        const rootNode = diagram.nodes.iterator.value;
+                        // isRoot: true 인 노드를 찾습니다.
+                        const rootData = diagram.model.nodeDataArray.find(d => d.isRoot);
+                        if (!rootData) {
+                            // 최상위 노드가 없을 경우 첫 노드를 중심으로 설정 (비상 플랜)
+                            diagram.centerPart(diagram.nodes.iterator.value);
+                            diagram.commitTransaction("Initial Root Zoom");
+                            return;
+                        }
+
+                        const rootNode = diagram.findNodeForKey(rootData.key);
                         if (!rootNode) return;
 
-                        // 루트 노드를 포함한 직속 자식 노드들의 집합 (Adjacency Set)
+                        // Root Node와 그 직속 자식 노드들만 포함하는 집합을 생성합니다.
                         const initialGroup = new go.Set();
                         initialGroup.add(rootNode);
-                        rootNode.findTreeChildrenNodes().each(child => initialGroup.add(child));
+                        rootNode.findTreeChildrenNodes().each(child => {
+                            // 이 자식 노드가 루트의 직속 자식인지 확인 (레벨 1)
+                            if (child.data.parent === rootNode.data.key) {
+                                initialGroup.add(child);
+                            }
+                        });
                         
                         if (initialGroup.count > 0) {
-                            // 이 노드들의 집합에 대한 경계 (Bounds) 계산
+                            // 이 노드들의 경계 (Bounds) 계산
                             const bounds = diagram.computeBounds(initialGroup);
                             
-                            // 계산된 경계를 뷰포트로 설정 (적절한 여백을 위해 10% 정도 확대/축소 비율 적용)
-                            // setViewportBounds는 해당 영역을 뷰어에 꽉 채우도록 자동으로 스케일링 함.
-                            diagram.setViewportBounds(bounds, diagram.scale * 1.1); // 10% 여백
+                            // 계산된 경계를 뷰포트로 설정 (적절한 여백을 위해 10% 축소/확대)
+                            diagram.setViewportBounds(bounds, diagram.scale * 1.1);
                         } else {
-                            // 자식 노드가 없는 경우 루트 노드만 중앙에 배치
+                            // 직속 자식 노드가 없는 경우 루트 노드만 중앙에 배치
                             diagram.centerPart(rootNode);
                         }
                         
-                        diagram.commitTransaction("Initial Zoom");
+                        diagram.commitTransaction("Initial Root Zoom");
                     });
                     // 🚨 초기 뷰 확대 로직 종료
                 })
