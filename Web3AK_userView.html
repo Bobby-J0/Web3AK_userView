@@ -66,7 +66,7 @@
 
         /* [3] 기타 UI 스타일 (웹/데스크톱 기본 레이아웃) */
         
-        /* 상세 정보 박스: 웹에서는 좌측 상단에 고정 */
+        /* **[수정]** 상세 정보 박스: 닫기 버튼 배치를 위해 position: relative 추가 */
         .node-info { 
             position: absolute; 
             top: 95px; 
@@ -76,20 +76,21 @@
             border: 1px solid #ddd; background-color: rgba(255, 255, 255, 0.95); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
             z-index: 100; transition: all 0.3s ease; 
             display: none; 
+            /* 닫기 버튼을 위한 상대 위치 설정 */
+            position: relative; 
+            padding-top: 30px; /* 닫기 버튼 공간 확보 */
         }
         .node-info button { 
             background-color: #ff6f61; color: white; border: none; padding: 8px 12px; cursor: pointer; border-radius: 4px; margin-top: 10px;
         }
 
-        /* 💡 [수정] 상세 정보 박스 내 지갑 주소 줄바꿈 강제 적용 */
+        /* 상세 정보 박스 내 지갑 주소 줄바꿈 강제 적용 */
         .node-info p {
-            /* 단어 기준으로 줄바꿈되지 않는 긴 문자열을 강제 줄바꿈 */
             word-break: break-all; 
-            /* 특히 긴 주소 문자열이 박스를 넘지 않도록 보장 */
             overflow-wrap: break-word; 
         }
         
-        /* 기능 안내 박스: 웹에서는 우측 상단에 고정 */
+        /* **[수정]** 기능 안내 박스: 닫기 버튼 배치를 위해 position: relative 추가 */
         .feature-info {
             position: absolute; 
             top: 95px; 
@@ -99,12 +100,31 @@
             border: 1px solid #ccc; background-color: rgba(255, 255, 255, 0.95); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             z-index: 100; font-size: 13px; transition: all 0.3s ease; 
             display: none; 
+            /* 닫기 버튼을 위한 상대 위치 설정 */
+            position: relative; 
+            padding-top: 30px; /* 닫기 버튼 공간 확보 */
         }
         .feature-info ul {
             list-style-type: none; padding-left: 0; margin-bottom: 0;
         }
         .feature-info li {
             margin-bottom: 5px;
+        }
+        
+        /* 💡 [추가] 닫기 버튼 스타일 정의 */
+        .close-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: none;
+            color: #333;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 5px 8px;
+            line-height: 1;
+            font-weight: bold;
+            z-index: 101; 
         }
 
         /* 검색창 및 버튼 스타일 */
@@ -166,6 +186,7 @@
                 z-index: 101; 
                 font-size: 13px; 
                 border-radius: 8px;
+                padding-top: 30px; /* 닫기 버튼 공간 확보 */
             }
             
             /* 상세 정보 박스 (모바일: 상단 고정) */
@@ -182,6 +203,7 @@
                 z-index: 100;
                 border: 1px solid #ccc;
                 border-radius: 8px;
+                padding-top: 30px; /* 닫기 버튼 공간 확보 */
             }
         }
     </style>
@@ -201,6 +223,7 @@
     </div>
     
     <div class="feature-info" id="featureInfo" onclick="event.stopPropagation()">
+        <button class="close-btn" onclick="closeFeatureInfo()">X</button>
         <h3>🚀 핵심 기능 요약</h3>
         <ul>
             <li>**데이터 갱신:** Google Sheets 변경 시 **페이지 새로고침** 필수</li>
@@ -210,7 +233,9 @@
         </ul>
     </div>
 
-    <div class="node-info" id="selectedNodeInfo"></div>
+    <div class="node-info" id="selectedNodeInfo">
+        <button class="close-btn" onclick="clearNodeInfo()">X</button>
+    </div>
 
     <div id="loadingSpinner">
         <div class="spinner"></div>
@@ -259,6 +284,13 @@
             }
         }
         
+        // **[수정]** 기능 안내 박스 닫기 함수 (토글 버튼 상태 초기화 포함)
+        function closeFeatureInfo() {
+            featureInfoDiv.style.display = 'none';
+            toggleFeatureButton.style.backgroundColor = '#28a745'; // 닫힘: 녹색
+        }
+
+        // **[수정]** 기능 안내 박스 토글 (명시적 닫기 함수 호출로 로직 개선)
         function toggleFeatureInfo() {
             if (selectedNodeInfoDiv.style.display === 'block') {
                  clearNodeInfo();
@@ -266,24 +298,24 @@
             
             if (featureInfoDiv.style.display === 'none' || featureInfoDiv.style.display === '') {
                 featureInfoDiv.style.display = 'block';
-                toggleFeatureButton.style.backgroundColor = '#dc3545'; 
+                toggleFeatureButton.style.backgroundColor = '#dc3545'; // 열림: 빨강
             } else {
-                featureInfoDiv.style.display = 'none';
-                toggleFeatureButton.style.backgroundColor = '#28a745'; 
+                closeFeatureInfo();
             }
         }
         
         function showNodeInfo() {
             selectedNodeInfoDiv.style.display = 'block';
             if (featureInfoDiv.style.display === 'block') {
-                featureInfoDiv.style.display = 'none'; 
-                toggleFeatureButton.style.backgroundColor = '#28a745'; 
+                closeFeatureInfo(); 
             }
         }
         
         function clearNodeInfo() {
             selectedNodeInfoDiv.style.display = 'none'; 
-            selectedNodeInfoDiv.innerHTML = ""; 
+            selectedNodeInfoDiv.innerHTML = `
+                <button class="close-btn" onclick="clearNodeInfo()">X</button>
+            `; 
         }
 
         /* ======================================================= */
@@ -462,6 +494,7 @@
                 '';
                 
             selectedNodeInfoDiv.innerHTML = `
+                <button class="close-btn" onclick="clearNodeInfo()">X</button>
                 <h3>${data.유저_이름} (${data.유저_ID})</h3>
                 <p><strong>본인 지갑:</strong> ${data.본인_지갑_주소}</p>
                 <p><strong>상위 지갑:</strong> ${data.parent || '없음 (루트)'}</p>
@@ -528,9 +561,8 @@
             }
             
             if (window.innerWidth <= 600) {
-                featureInfoDiv.style.display = 'none';
+                closeFeatureInfo();
                 selectedNodeInfoDiv.style.display = 'none';
-                toggleFeatureButton.style.backgroundColor = '#28a745'; 
             }
 
             myDiagram =
@@ -542,10 +574,8 @@
                     "undoManager.isEnabled": true,      
                     "click": function(e) {               
                         clearNodeInfo();
-                        if (featureInfoDiv.style.display === 'block') {
-                            featureInfoDiv.style.display = 'none';
-                            toggleFeatureButton.style.backgroundColor = '#28a745'; 
-                        }
+                        // 캔버스 배경 클릭 시 기능 안내 박스 닫기
+                        closeFeatureInfo();
                     }
                 });
             
