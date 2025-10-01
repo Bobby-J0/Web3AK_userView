@@ -1,634 +1,645 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Web3AK</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    
-    <script src="https://unpkg.com/gojs@2.3.11/release/go.js"></script>
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web3AK 조직도 대시보드</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons for Web/App Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- D3.js for Interactive Tree Visualization -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        /* ======================================================= */
-        /* [1] 기본 레이아웃 및 뷰어 스타일 */
-        /* ======================================================= */
-        #orgChartDiv {
-            width: 100%;
-            height: 85vh; 
-            background-color: #FAFAFA; 
-            border: 1px solid #ccc;
+        /* Inter 폰트 사용 */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        :root {
+            font-family: 'Inter', sans-serif;
         }
-        body { 
-            font-family: Arial, sans-serif; 
-            text-align: center;
-            margin: 0; 
-            padding: 0;
-            position: relative; 
+        /* 스크롤바 스타일 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #9ca3af; /* gray-400 */
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f3f4f6; /* gray-100 */
         }
         
-        /* 데이터 유효성 검사 실패 시 표시되는 경고 메시지 영역 스타일 */
-        #warningMessage {
-            background-color: #ffcdd2; 
-            color: #d32f2f; 
-            padding: 10px;
-            margin-bottom: 15px;
-            border-radius: 4px;
-            font-weight: bold;
-            display: none; 
+        .table-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
         
-        /* 조직도 전체 보기 버튼 스타일 */
-        #showAllButton {
-            background-color: #17a2b8; 
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            cursor: pointer;
-            border-radius: 4px;
-            margin-bottom: 15px;
-            display: none; 
-        }
-
-        /* [2] 로딩 스피너 스타일 */
-        #loadingSpinner {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            z-index: 1000; background-color: rgba(0, 0, 0, 0.7); color: white;
-            padding: 20px 40px; border-radius: 8px; font-size: 1.2em; display: none;
-        }
-        .spinner {
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-top: 4px solid #fff; border-radius: 50%; width: 30px; height: 30px;
-            animation: spin 1s linear infinite; margin: 0 auto 10px;
+        .loading-icon {
+            animation: spin 1s linear infinite;
         }
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
-
-        /* [3] 기타 UI 스타일 (웹/데스크톱 기본 레이아웃) */
-        
-        /* 상세 정보 박스: position: absolute (겹침 출력) */
-        .node-info { 
-            position: absolute; 
-            top: 95px; 
-            left: 10px; 
-            right: auto; 
-            max-width: 380px; text-align: left; padding: 15px; 
-            border: 1px solid #ddd; background-color: rgba(255, 255, 255, 0.95); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
-            z-index: 100; transition: all 0.3s ease; 
-            display: none; 
-            position: relative; 
-            padding-top: 30px; 
-        }
-        .node-info button { 
-            background-color: #ff6f61; color: white; border: none; padding: 8px 12px; cursor: pointer; border-radius: 4px; margin-top: 10px;
-        }
-
-        /* 상세 정보 박스 내 지갑 주소 줄바꿈 강제 적용 */
-        .node-info p {
-            word-break: break-all; 
-            overflow-wrap: break-word; 
+        /* 드롭다운 화살표 제거 (appearance-none 사용 시 필요) */
+        select.appearance-none::-ms-expand {
+            display: none;
         }
         
-        /* 기능 안내 박스: position: absolute (겹침 출력, 우측 고정) */
-        .feature-info {
-            position: absolute; 
-            top: 95px; 
-            right: 40px; /* ⭐ 수정: 웹 환경에서 우측 40px 고정 */
-            left: auto; 
-            max-width: 400px; text-align: left; padding: 15px; 
-            border: 1px solid #ccc; background-color: rgba(255, 255, 255, 0.95); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            z-index: 100; font-size: 13px; transition: all 0.3s ease; 
-            display: none; 
-            position: relative; 
-            padding-top: 30px; 
-        }
-        .feature-info ul {
-            list-style-type: none; padding-left: 0; margin-bottom: 0;
-        }
-        .feature-info li {
-            margin-bottom: 5px;
-        }
-        
-        /* 닫기 버튼 스타일 정의 */
-        .close-btn {
+        /* 검색어 지우기 버튼 스타일 */
+        .clear-button {
             position: absolute;
-            top: 5px;
-            right: 5px;
-            background: none;
-            color: #333;
-            border: none;
-            font-size: 16px;
+            right: 4px; 
+            top: 50%;
+            transform: translateY(-50%);
+            padding: 8px; 
             cursor: pointer;
-            padding: 5px 8px;
-            line-height: 1;
-            font-weight: bold;
-            z-index: 101; 
+            color: #9ca3af; 
+            border-radius: 50%;
+            transition: color 0.15s ease-in-out;
+            -webkit-tap-highlight-color: transparent; 
+        }
+        .clear-button:hover, .clear-button:active {
+            color: #4b5563; 
+            background-color: #e5e7eb; 
         }
 
-        /* 검색창 및 버튼 스타일 */
-        .search-container {
-            margin-top: 15px; margin-bottom: 15px; text-align: center;
+        /* D3 조직도 스타일 */
+        #tree-container svg {
+            /* 드래그를 용이하게 하기 위해 커서 변경 */
+            cursor: grab;
+            /* SVG의 배경을 흰색으로 설정 */
+            background-color: #ffffff;
+            border-radius: 0.75rem; /* rounded-xl */
         }
-        #searchInput {
-            padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 300px; 
-        }
-        .search-container button, .mobile-toggle-button {
-            padding: 8px 15px; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 5px; 
-        }
-        .search-container button:not(#clearSearchButton):not(.mobile-toggle-button) {
-             background-color: #007bff;
-        }
-        #clearSearchButton {
-            background-color: #6c757d; 
-        }
-        #toggleFeatureButton {
-            background-color: #28a745; 
-        }
-
-        /* ======================================================= */
-        /* [4] 모바일 최적화 (@media 쿼리 - 600px 이하) */
-        /* ======================================================= */
-        @media (max-width: 600px) {
-            #orgChartDiv { height: 85vh; }
-            
-            /* 검색 영역 모바일 레이아웃 조정 */
-            .search-container {
-                margin-top: 10px; margin-bottom: 5px; padding: 0 10px; 
-                display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
-            }
-            #searchInput {
-                width: 100%; margin-bottom: 5px; order: 1; 
-            }
-            #clearSearchButton, 
-            .search-container button:not(#clearSearchButton):not(#toggleFeatureButton),
-            #toggleFeatureButton {
-                width: 32%; display: inline-block; box-sizing: border-box; margin-left: 0; margin-right: 0; order: 2; 
-            }
-            #clearSearchButton { margin-right: 2%; }
-            .search-container button:not(#clearSearchButton):not(#toggleFeatureButton) { margin-right: 2%; }
-            .mobile-toggle-group { display: none; }
-            
-            /* 기능 안내 박스 (모바일: 하단 고정 - 우측 정렬 유지) */
-            .feature-info { 
-                position: fixed; 
-                bottom: 10px; 
-                top: auto; 
-                left: 10px;
-                right: 10px; /* ⭐ 수정: 모바일 환경에서 우측 10px 고정 */
-                max-width: none; 
-                width: auto;
-                padding: 15px;
-                box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2); 
-                border: 1px solid #b3e5fc; 
-                background-color: rgba(255, 255, 255, 0.98); 
-                z-index: 101; 
-                font-size: 13px; 
-                border-radius: 8px;
-                padding-top: 30px; 
-            }
-            
-            /* 상세 정보 박스 (모바일: 상단 고정 - 좌우 정렬 유지) */
-            .node-info { 
-                position: fixed; 
-                top: 115px; 
-                bottom: auto; 
-                left: 10px;
-                right: 10px;
-                max-width: none;
-                padding: 15px;
-                background-color: rgba(255, 255, 255, 0.98);
-                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
-                z-index: 100;
-                border: 1px solid #ccc;
-                border-radius: 8px;
-                padding-top: 30px; 
-            }
+        
+        /* D3 노드 텍스트 스타일 */
+        .node text {
+            font-family: 'Inter', sans-serif;
+            pointer-events: none; /* 텍스트 위에서 드래그 가능하도록 설정 */
         }
     </style>
 </head>
-<body>
-    <h2>Web3AK 조직도</h2>
-    
-    <div id="warningMessage"></div>
-    
-    <button id="showAllButton" onclick="showAll()">🔙 전체 조직도 보기</button>
+<body class="bg-gray-50 min-h-screen p-4 sm:p-8">
+    <div id="app" class="max-w-7xl mx-auto">
+        
+        <!-- Header & Title -->
+        <header class="mb-8">
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-indigo-700 flex items-center">
+                <i data-lucide="network" class="w-8 h-8 mr-3 text-indigo-500"></i>
+                Web3AK 조직도 및 지표
+            </h1>
+            <p class="text-gray-500 mt-1">Google Sheets 기반 실시간 조직 구조 및 지표 대시보드</p>
+            <div id="status-message" class="mt-4 text-sm font-medium text-red-500 hidden"></div>
+        </header>
 
-    <div class="search-container">
-        <input type="text" id="searchInput" placeholder="이름, 연락처, 지갑주소 (부분 일치 검색)">
-        <button id="clearSearchButton">Clear</button>
-        <button onclick="highlightNodes()">검색</button>
-        <button id="toggleFeatureButton" class="mobile-toggle-button" onclick="toggleFeatureInfo()">기능 안내</button> 
-    </div>
-    
-    <div class="feature-info" id="featureInfo" onclick="event.stopPropagation()">
-        <button class="close-btn" onclick="closeFeatureInfo()">X</button>
-        <h3>🚀 핵심 기능 요약</h3>
-        <ul>
-            <li>**데이터 갱신:** Google Sheets 변경 시 **페이지 새로고침** 필수</li>
-            <li>**상세 정보:** 노드 **클릭**으로 좌측 정보 확인</li>
-            <li>**하위 조직:** 상세 정보 박스에서 **하위조직만 보기 선택**, 상단 **전체보기** 탭 활성</li>
-            <li>**시스템 진단:** 데이터 유효성(Key/Parent) 자동 검증</li>
-        </ul>
-    </div>
+        <!-- Control Panel -->
+        <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg mb-8">
+            <div class="flex flex-row flex-nowrap items-end justify-start gap-4"> 
+                
+                <!-- 1. Search Field Select -->
+                <div class="flex-shrink-0 w-28 sm:w-32"> 
+                    <label for="search-field" class="block text-sm font-medium text-gray-700 mb-1 whitespace-nowrap">검색 항목 선택</label>
+                    <div class="relative">
+                        <select id="search-field" 
+                                class="w-full border border-gray-300 rounded-lg py-2.5 pr-10 pl-4 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition duration-150 ease-in-out appearance-none" 
+                                onchange="filterData()">
+                            <option value="유저_이름">성명</option>
+                            <option value="유저_ID">ID</option>
+                            <option value="연락처">연락처</option>
+                            <option value="직속_하위_수">직대</option>
+                            <option value="총_하위_수">하위 수</option>
+                        </select>
+                        <i data-lucide="chevron-down" class="w-5 h-5 text-gray-400 absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none"></i>
+                    </div>
+                </div>
+                
+                <!-- 2. Search Input -->
+                <div class="flex-grow min-w-[120px]"> 
+                    <label for="search-input" class="block text-sm font-medium text-gray-700 mb-1 whitespace-nowrap">검색어 입력</label>
+                    <div class="relative">
+                        <input type="text" id="search-input" placeholder="검색어를 입력하세요..." 
+                            class="w-full border border-gray-300 rounded-lg py-2.5 pl-10 pr-10 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out shadow-sm"
+                            oninput="filterData()">
+                        <i data-lucide="search" class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2"></i>
+                        
+                        <div id="clear-search-button" class="clear-button hidden" onmousedown="clearSearch(event)">
+                            <i data-lucide="x-circle" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                </div>
 
-    <div class="node-info" id="selectedNodeInfo">
-        <button class="close-btn" onclick="clearNodeInfo()">X</button>
-    </div>
+                <!-- 3. Refresh Button -->
+                <div class="flex-shrink-0"> 
+                    <button id="refresh-button" class="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition duration-200 ease-in-out flex items-center disabled:opacity-50 whitespace-nowrap" onclick="fetchData(true)">
+                        <i data-lucide="refresh-cw" class="w-5 h-5 mr-2"></i>
+                        새로고침
+                    </button>
+                </div>
 
-    <div id="loadingSpinner">
-        <div class="spinner"></div>
-        데이터 로드 중...
-    </div>
+                <!-- 4. View Toggle -->
+                <div class="flex-shrink-0 flex items-center space-x-2 pb-1"> 
+                    <input type="checkbox" id="view-toggle" class="h-5 w-5 text-indigo-600 rounded-full focus:ring-indigo-500 transition duration-150 ease-in-out" onchange="toggleView()">
+                    <label for="view-toggle" class="text-sm font-medium text-gray-700 select-none whitespace-nowrap">조직도 보기</label>
+                </div>
 
-    <div id="orgChartDiv"></div>
+            </div>
+        </div>
+
+        <!-- Content Area: Table / Tree -->
+        <div id="loading-state" class="text-center py-10">
+            <i data-lucide="loader-2" class="loading-icon w-10 h-10 text-indigo-500 mx-auto mb-3"></i>
+            <p class="text-indigo-500 font-medium">데이터를 불러오는 중입니다...</p>
+        </div>
+
+        <div id="data-container" class="mt-6 hidden">
+            <!-- Table View -->
+            <div id="table-view" class="table-wrapper bg-white rounded-xl shadow-lg p-4">
+                <table id="data-table" class="min-w-full divide-y divide-gray-200"> 
+                    <thead class="bg-gray-50">
+                        <tr id="table-header">
+                            <!-- Headers will be inserted here -->
+                        </tr>
+                    </thead>
+                    <tbody id="table-body" class="bg-white divide-y divide-gray-200">
+                        <!-- Data rows will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Tree View (D3.js Visualization) -->
+            <div id="tree-view" class="bg-white rounded-xl shadow-lg p-6 min-h-[500px] hidden">
+                <!-- D3.js가 SVG를 렌더링할 컨테이너 (높이를 확보해야 D3 시각화가 제대로 보입니다) -->
+                <div id="tree-container" class="w-full h-[900px]">
+                </div>
+            </div>
+        </div>
+        
+    </div>
 
     <script>
-        /* ======================================================= */
-        /* [1] 전역 변수 및 상수 정의 */
-        /* ======================================================= */
+        // Apps Script 웹 앱 URL (★★★★★ 고객님이 제공한 최종 URL로 업데이트됨 ★★★★★)
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxutUIMVFENC6qT4kLeTUgkZxw31Mcu8mD_pHw5mMDj3OPixX-WycckTq3jl2wsepzjqw/exec";
         
-        // Google Apps Script API 엔드포인트
-        const API_URL = "https://script.google.com/macros/s/AKfycbxutUIMVFENC6qT4kLeTUgkZxw31Mcu8mD_pHw5mMDj3OPixX-WycckTq3jl2wsepzjqw/exec"; 
-        const $ = go.GraphObject.make; 
-
-        // DOM 요소 캐싱
-        const featureInfoDiv = document.getElementById('featureInfo');
-        const selectedNodeInfoDiv = document.getElementById('selectedNodeInfo');
-        const toggleFeatureButton = document.getElementById('toggleFeatureButton');
-        const showAllButton = document.getElementById('showAllButton');
-        const loadingSpinner = document.getElementById('loadingSpinner');
-        const warningMessageDiv = document.getElementById('warningMessage'); 
-
-        // GoJS 및 데이터 상태 변수
-        let myDiagram = null;           
-        let allNodeData = [];           
-        let isSubtreeView = false;      
-        let currentSubtreeRootKey = null; 
+        let rawData = [];
+        let filteredData = [];
+        let isTableView = true;
         
-        /* ======================================================= */
-        /* [2] UI 상태 관리 함수 */
-        /* ======================================================= */
+        // 정렬 상태 변수
+        let currentSortKey = ''; 
+        let sortDirection = 'none'; // 'asc', 'desc', 'none' 중 하나
 
-        function showLoadingSpinner(show) {
-            loadingSpinner.style.display = show ? 'block' : 'none';
-        }
+        const loadingState = document.getElementById('loading-state');
+        const dataContainer = document.getElementById('data-container');
+        const tableView = document.getElementById('table-view');
+        const treeView = document.getElementById('tree-view');
+        const tableHeader = document.getElementById('table-header');
+        const tableBody = document.getElementById('table-body');
+        const treeContainer = document.getElementById('tree-container');
+        const statusMessage = document.getElementById('status-message');
+        const refreshButton = document.getElementById('refresh-button');
+        const searchInput = document.getElementById('search-input');
+        const clearSearchButton = document.getElementById('clear-search-button');
         
-        function showWarningMessage(message) {
-            if (message) {
-                warningMessageDiv.innerHTML = `⚠️ **데이터 경고:** ${message}`;
-                warningMessageDiv.style.display = 'block';
-            } else {
-                warningMessageDiv.style.display = 'none';
-            }
+        // 아이콘 초기화 (Lucide)
+        window.onload = () => {
+             lucide.createIcons();
+             fetchData();
+        };
+        
+        // 한글 판별 헬퍼 함수
+        function isHangul(char) {
+            if (!char) return false;
+            const code = char.charCodeAt(0);
+            return code >= 0xAC00 && code <= 0xD7A3; // 한글 범위
         }
         
-        function closeFeatureInfo() {
-            featureInfoDiv.style.display = 'none';
-            toggleFeatureButton.style.backgroundColor = '#28a745';
+        // 문자열 정렬 비교 로직 (한글/영문 우선순위 적용)
+        function compareAlphaNumeric(valA, valB, direction) {
+            const isHangulA = isHangul(valA.charAt(0));
+            const isHangulB = isHangul(valB.charAt(0));
+
+            if (direction === 'asc') {
+                if (isHangulA && !isHangulB) return -1; 
+                if (!isHangulA && isHangulB) return 1; 
+                return valA.localeCompare(valB, 'ko', { sensitivity: 'base' });
+            } else if (direction === 'desc') {
+                if (!isHangulA && isHangulB) return -1; 
+                if (isHangulA && !isHangulB) return 1;  
+                return valB.localeCompare(valA, 'ko', { sensitivity: 'base' });
+            }
+            return 0;
         }
 
-        function toggleFeatureInfo() {
-            if (selectedNodeInfoDiv.style.display === 'block') {
-                 clearNodeInfo();
-            }
-            
-            if (featureInfoDiv.style.display === 'none' || featureInfoDiv.style.display === '') {
-                featureInfoDiv.style.display = 'block';
-                toggleFeatureButton.style.backgroundColor = '#dc3545';
-            } else {
-                closeFeatureInfo();
-            }
+        // 숫자 정렬 비교 로직
+        function compareNumber(numA, numB, direction) {
+            if (direction === 'asc') return numA - numB; 
+            if (direction === 'desc') return numB - numA; 
+            return 0;
         }
         
-        function showNodeInfo() {
-            selectedNodeInfoDiv.style.display = 'block';
-            if (featureInfoDiv.style.display === 'block') {
-                closeFeatureInfo(); 
-            }
-        }
-        
-        function clearNodeInfo() {
-            selectedNodeInfoDiv.style.display = 'none'; 
-            selectedNodeInfoDiv.innerHTML = `
-                <button class="close-btn" onclick="clearNodeInfo()">X</button>
-            `; 
+        // 검색 필드 초기화 및 필터링 재실행
+        function clearSearch(event) {
+            if (event) event.preventDefault(); 
+            searchInput.value = '';
+            clearSearchButton.classList.add('hidden'); 
+            filterData(); 
         }
 
-        /* ======================================================= */
-        /* [3] 데이터 유효성 및 차트 관리 로직 */
-        /* ======================================================= */
+        /**
+         * Google Apps Script API에서 데이터를 가져옵니다.
+         */
+        async function fetchData(forceRefresh = false) {
+            loadingState.classList.remove('hidden');
+            dataContainer.classList.add('hidden');
+            statusMessage.classList.add('hidden');
+            refreshButton.disabled = true;
 
-        function validateNodeData(dataArray) {
-            const keys = new Set(dataArray.map(d => d.key));
-            const invalidNodes = [];
-            
-            dataArray.forEach(data => {
-                if (data.parent && data.parent !== "" && !keys.has(data.parent)) {
-                    invalidNodes.push(`[유령 Parent] Key: ${data.key}, Parent: ${data.parent}`);
-                }
-            });
-            
-            if (invalidNodes.length > 0) {
-                return `조직도에 ${invalidNodes.length}개의 데이터 오류가 발견되었습니다. 첫 3개 항목: ${invalidNodes.slice(0, 3).join(', ')}...`;
-            }
-            return null; 
-        }
-
-        function buildChart(dataArray, isInitialLoad) {
-            let oldPosition = null;
-            let oldScale = null;
-            
-            if (!isInitialLoad && myDiagram) {
-                oldPosition = myDiagram.position.copy();
-                oldScale = myDiagram.scale;
-            }
-            
-            myDiagram.model = $(go.TreeModel, { 
-                nodeDataArray: dataArray,
-                nodeParentKeyProperty: "parent" 
-            });
-            
-            if (oldPosition !== null && oldScale !== null) {
-                myDiagram.startTransaction("restore view");
-                myDiagram.position = oldPosition;
-                myDiagram.scale = oldScale;
-                myDiagram.commitTransaction("restore view");
-            } else {
-                myDiagram.initialPosition = new go.Point(0, 0); 
-                myDiagram.scale = 1; 
-            }
-            
-            myDiagram.requestUpdate(); 
-            showLoadingSpinner(false); 
-        }
-
-        function showSubtree(rootKey) {
-            currentSubtreeRootKey = rootKey; 
-            isSubtreeView = true;
-            
-            const nodeMap = new Map();
-            allNodeData.forEach(data => nodeMap.set(data.key, data));
-
-            const subtreeKeys = new Set();
-            const queue = [rootKey]; 
-
-            let head = 0;
-            while (head < queue.length) {
-                const currentKey = queue[head++];
-                subtreeKeys.add(currentKey);
+            try {
+                const response = await fetch(SCRIPT_URL);
+                if (!response.ok) throw new Error(`HTTP 오류: ${response.status}`);
                 
-                const children = allNodeData.filter(data => data.parent === currentKey).map(data => data.key);
-                children.forEach(key => queue.push(key));
+                const data = await response.json();
+                if (data.error) throw new Error(`Apps Script 오류: ${data.error}`);
+                
+                // 데이터 정제: 숫자 필드를 숫자로 변환
+                rawData = data.map(user => ({
+                    ...user,
+                    '직속_하위_수': Number(user['직속_하위_수']),
+                    '총_하위_수': Number(user['총_하위_수']),
+                    // D3.js 트리 생성을 위해 'children' 필드를 빈 배열로 초기화 (필수)
+                    children: [] 
+                }));
+
+                filteredData = [...rawData];
+                currentSortKey = '';
+                sortDirection = 'none';
+                
+                filterData(); 
+                
+                dataContainer.classList.remove('hidden');
+                if(forceRefresh) showTransientMessage('데이터를 성공적으로 업데이트했습니다.', 'text-green-600 bg-green-50');
+
+            } catch (error) {
+                console.error("데이터 로드 중 오류 발생:", error);
+                showTransientMessage(`데이터 로드 실패: ${error.message}`, 'text-red-600 bg-red-50 border border-red-200');
+                dataContainer.classList.add('hidden');
+            } finally {
+                loadingState.classList.add('hidden');
+                refreshButton.disabled = false;
+                lucide.createIcons(); 
+            }
+        }
+        
+        /**
+         * 검색어에 따라 데이터를 필터링하고 테이블/트리를 다시 렌더링합니다.
+         */
+        function filterData() {
+            const searchField = document.getElementById('search-field').value; 
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            
+            if (searchTerm) {
+                clearSearchButton.classList.remove('hidden');
+            } else {
+                clearSearchButton.classList.add('hidden');
             }
 
-            const newArray = [];
-            const rootNodeData = nodeMap.get(rootKey);
-            
-            if (rootNodeData) {
-                newArray.push({
-                    ...rootNodeData, 
-                    parent: undefined, 
-                    isRoot: true 
+            // 1. 검색 필터 적용
+            let tempFilteredData = [];
+            if (!searchTerm) {
+                tempFilteredData = [...rawData];
+            } else {
+                tempFilteredData = rawData.filter(user => {
+                    const valueToSearch = String(user[searchField]);
+                    
+                    if (['직속_하위_수', '총_하위_수'].includes(searchField)) {
+                        return valueToSearch === searchTerm;
+                    }
+                    return valueToSearch.toLowerCase().includes(searchTerm);
                 });
             }
-
-            allNodeData.forEach(data => {
-                if (data.key !== rootNodeData && subtreeKeys.has(data.key)) {
-                    newArray.push({ ...data, isRoot: false }); 
-                }
-            });
             
-            if (newArray.length > 0) {
-                buildChart(newArray, false); 
-                showAllButton.style.display = 'inline-block'; 
-                clearNodeInfo(); 
-            } else {
-                isSubtreeView = false; 
-            }
-        }
+            // 2. 현재 정렬 상태에 따라 필터링된 데이터를 정렬
+            filteredData = tempFilteredData; 
 
-        function showAll() {
-            if (allNodeData.length > 0) {
-                isSubtreeView = false;
-                currentSubtreeRootKey = null; 
-                buildChart(allNodeData, false); 
-                showAllButton.style.display = 'none'; 
-                clearNodeInfo();
-            }
-        }
+            if (currentSortKey !== '' && sortDirection !== 'none') {
+                const keyToSort = currentSortKey;
+                const isNumericSort = ['직속_하위_수', '총_하위_수'].includes(keyToSort);
 
-        function fetchDataAndBuildChart(diagram, isInitialLoad) {
-            showLoadingSpinner(true); 
-            showWarningMessage(null); 
-
-            fetch(API_URL)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error("API 호출 실패: " + response.statusText);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (!Array.isArray(data)) {
-                        throw new Error("API 응답 형식이 올바르지 않습니다. (배열이 아님)");
-                    }
-                    
-                    if (data.length === 0) {
-                        document.getElementById("orgChartDiv").innerHTML = `<p style="color: orange; padding: 20px;">**경고:** Google Sheets에 노드를 생성할 **데이터가 없습니다.**</p>`;
-                        showLoadingSpinner(false);
-                        return;
-                    }
-
-                    const newNodeDataArray = data.map(item => ({
-                        key: item['본인_지갑_주소'], 
-                        parent: item['상위_노드_지갑_주소'], 
-                        유저_이름: item['유저_이름'] || item['유저_ID'],
-                        유저_ID: item['유저_ID'],
-                        연락처: item['연락처'],
-                        본인_지갑_주소: item['본인_지갑_주소'],
-                        직속_하위_수: item['직속_하위_수'],
-                        총_하위_수: item['총_하위_수'],
-                        isRoot: item['상위_노드_지갑_주소'] === "", 
-                        isHighlighted: false 
-                    })).filter(item => item.key); 
-                    
-                    const validationError = validateNodeData(newNodeDataArray);
-                    if (validationError) {
-                        showWarningMessage(validationError);
-                    }
-                    
-                    allNodeData = newNodeDataArray; 
-                    
-                    if (isSubtreeView && currentSubtreeRootKey) {
-                        showSubtree(currentSubtreeRootKey); 
+                filteredData.sort((a, b) => {
+                    if (isNumericSort) {
+                        return compareNumber(a[keyToSort], b[keyToSort], sortDirection);
                     } else {
-                        buildChart(allNodeData, isInitialLoad); 
+                        return compareAlphaNumeric(String(a[keyToSort] || ''), String(b[keyToSort] || ''), sortDirection);
                     }
-
-                })
-                .catch(error => {
-                    console.error("데이터 로드 중 오류 발생:", error);
-                    document.getElementById("orgChartDiv").innerHTML = `<p style="color: red; padding: 20px;">**데이터 로드 오류:** API 주소나 Google Apps Script 설정(공개 여부)을 확인하세요. ${error.message}</p>`;
-                    showLoadingSpinner(false);
-                    showWarningMessage(`치명적 API 오류 발생: ${error.message}`);
                 });
-        }
-
-        function formatNodeText(data) {
-            const name = data.유저_이름 || '이름 없음';
-            const userId = data.유저_ID;
-            let totalCountLine = "";
-            if (data.총_하위_수 && data.총_하위_수 > 0) {
-                totalCountLine = `\n(총 ${data.총_하위_수}명)`;
             }
-            return `${name}\n${userId}${totalCountLine}`; 
-        }
 
-        function showNodeDetails(data) {
-            const subtreeButton = data.총_하위_수 > 0 ? 
-                `<button onclick="showSubtree('${data.key}')">👉 하위 조직만 보기</button>` : 
-                '';
-                
-            selectedNodeInfoDiv.innerHTML = `
-                <button class="close-btn" onclick="clearNodeInfo()">X</button>
-                <h3>${data.유저_이름} (${data.유저_ID})</h3>
-                <p><strong>본인 지갑:</strong> ${data.본인_지갑_주소}</p>
-                <p><strong>상위 지갑:</strong> ${data.parent || '없음 (루트)'}</p>
-                <p><strong>연락처:</strong> ${data.연락처}</p>
-                <p><strong>직속 하위:</strong> ${data.직속_하위_수}명, <strong>총 하위 조직:</strong> ${data.총_하위_수}명</p>
-                ${subtreeButton}
-            `;
+            // 뷰 업데이트
+            if (isTableView) {
+                renderTable(filteredData);
+            } else {
+                renderTree(filteredData);
+            }
         }
         
-        function highlightNodes() {
-            if (!myDiagram || !myDiagram.model) return;
+        /**
+         * 테이블 데이터를 3단계로 정렬합니다.
+         */
+        function sortTable(key) {
+            if (currentSortKey === key) {
+                if (sortDirection === 'asc') {
+                    sortDirection = 'desc';
+                } else if (sortDirection === 'desc') {
+                    currentSortKey = ''; 
+                    sortDirection = 'none'; 
+                } else {
+                    currentSortKey = key;
+                    sortDirection = 'asc';
+                }
+            } else {
+                currentSortKey = key;
+                sortDirection = 'asc';
+            }
+            filterData();
+        }
+
+        /**
+         * 테이블 뷰를 렌더링합니다.
+         */
+        function renderTable(data) {
+            const sortableKeys = ['유저_ID', '유저_이름', '직속_하위_수', '총_하위_수'];
+            const displayHeaders = [
+                { key: '유저_ID', label: 'ID' }, 
+                { key: '유저_이름', label: '성명' }, 
+                { key: '연락처', label: '연락처' },
+                { key: '직속_하위_수', label: '직대' }, 
+                { key: '총_하위_수', label: '하위 수' } 
+            ];
+
+            if (data.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="${displayHeaders.length}" class="text-center py-4 text-gray-500">
+                    데이터가 없거나 검색 결과가 없습니다.
+                </td></tr>`;
+                return;
+            }
+
+            tableHeader.innerHTML = displayHeaders.map(item => {
+                const isSortable = sortableKeys.includes(item.key);
+                const isCurrentSort = currentSortKey === item.key;
+                let sortIcon = '';
+                
+                if (isCurrentSort) {
+                    sortIcon = sortDirection === 'asc' 
+                        ? `<i data-lucide="arrow-up" class="w-4 h-4 ml-1 text-indigo-700"></i>` 
+                        : `<i data-lucide="arrow-down" class="w-4 h-4 ml-1 text-indigo-700"></i>`;
+                } else if (isSortable) {
+                    sortIcon = `<i data-lucide="arrow-up-down" class="w-4 h-4 ml-1 opacity-40"></i>`;
+                }
+
+                const headerClasses = isSortable 
+                    ? 'cursor-pointer hover:text-indigo-600 transition duration-150 ease-in-out flex items-center justify-center' 
+                    : 'flex items-center justify-center'; 
+
+                return `
+                    <th scope="col" class="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        <div class="${headerClasses}" onclick="${isSortable ? `sortTable('${item.key}')` : ''}">
+                            ${item.label}
+                            ${sortIcon}
+                        </div>
+                    </th>
+                `;
+            }).join('');
+
+            tableBody.innerHTML = data.map(user => `
+                <tr class="hover:bg-indigo-50 transition duration-150 ease-in-out">
+                    ${displayHeaders.map(item => { 
+                        const displayValue = user[item.key];
+                        return `
+                            <td class="px-6 py-4 text-sm font-medium text-gray-900 text-center whitespace-nowrap">
+                                ${displayValue}
+                            </td>
+                        `;
+                    }).join('')}
+                </tr>
+            `).join('');
             
-            const searchInput = document.getElementById('searchInput');
-            const searchText = searchInput.value.toLowerCase().trim();
-            const model = myDiagram.model;
-            let firstFoundNode = null; 
+            lucide.createIcons(); 
+        }
+        
+        /**
+         * D3.js를 사용하여 인터랙티브 조직도(트리) 뷰를 렌더링합니다.
+         */
+        function renderTree(data) {
+            treeContainer.innerHTML = ''; // 컨테이너 초기화
 
-            myDiagram.startTransaction("highlight search results");
+            if (data.length === 0) {
+                treeContainer.innerHTML = '<p class="text-center py-10 text-gray-500">데이터가 없거나 검색 결과가 없습니다.</p>';
+                return;
+            }
 
-            model.nodeDataArray.forEach(data => {
-                const name = (data.유저_이름 || '').toLowerCase();
-                const userId = (data.유저_ID || '').toLowerCase();
-                const contact = (data.연락처 || '').toLowerCase();
-                const wallet = (data.본인_지갑_주소 || '').toLowerCase();
+            // 1. D3.js 트리 구조 생성 (데이터 전처리)
+            const tree = {};
+            
+            data.forEach(user => {
+                const wallet = user['본인_지갑_주소'];
                 
-                let matches = false;
+                if (!tree[wallet]) {
+                    tree[wallet] = { ...user, children: [] };
+                } else {
+                    Object.assign(tree[wallet], { ...user });
+                }
+            });
 
-                if (searchText.length > 0) {
-                    if (name.includes(searchText) || userId.includes(searchText) || contact.includes(searchText) || wallet.includes(searchText)) {
-                        matches = true;
+            let roots = [];
+            
+            data.forEach(user => {
+                const wallet = user['본인_지갑_주소'];
+                const parent = user['상위_노드_지갑_주소'];
+                
+                const isRootNode = !parent || !tree[parent] || parent === wallet;
+
+                if (tree[parent] && parent !== wallet) {
+                    // 부모 노드에 자식을 추가 (순환 참조 방지)
+                    if (tree[parent].children.indexOf(tree[wallet]) === -1) {
+                         tree[parent].children.push(tree[wallet]);
                     }
-                }
-                
-                if (data.isHighlighted !== matches) {
-                    model.setDataProperty(data, "isHighlighted", matches);
-                }
-                
-                if (matches && !firstFoundNode) {
-                    firstFoundNode = myDiagram.findNodeForKey(data.key);
+                } else if (isRootNode) {
+                    // 루트 노드 식별
+                    if (!roots.includes(tree[wallet])) {
+                        roots.push(tree[wallet]);
+                    }
                 }
             });
             
-            myDiagram.commitTransaction("highlight search results");
-            
-            if (firstFoundNode) {
-                myDiagram.centerPart(firstFoundNode);
-                firstFoundNode.isSelected = true; 
-                showNodeDetails(firstFoundNode.data); 
-                showNodeInfo(); 
+            // D3는 단일 루트를 기대하므로, 여러 루트가 있으면 가상 루트를 생성
+            let rootData;
+            if (roots.length > 1) {
+                rootData = {
+                    '유저_이름': 'Web3AK 전체 조직',
+                    '유저_ID': 'ROOT',
+                    '직속_하위_수': roots.length,
+                    '총_하위_수': data.length,
+                    '총_기여_포인트': 'N/A',
+                    children: roots
+                };
+            } else if (roots.length === 1) {
+                rootData = roots[0];
             } else {
-                myDiagram.clearSelection();
-                clearNodeInfo(); 
+                 treeContainer.innerHTML = '<p class="text-center py-10 text-gray-500">유효한 루트 노드를 찾을 수 없습니다.</p>';
+                 return;
+            }
+
+            // -----------------------------------------------------
+            // D3.js Visualization Setup (Zoom & Pan)
+            // -----------------------------------------------------
+
+            const nodeWidth = 180;
+            const nodeHeight = 80;
+            // 노드 간의 수직 간격 (이전 요청대로 100px 유지)
+            const nodeSeparation = 100; 
+
+            // SVG 컨테이너 크기 설정 
+            const width = treeContainer.clientWidth;
+            const height = treeContainer.clientHeight;
+            // 캔버스 경계와 조직도 사이의 마진 (이전 요청대로 1px 유지)
+            const margin = { top: 1, right: 1, bottom: 1, left: 1 }; 
+            
+            // 1. SVG 컨테이너 생성
+            const svg = d3.select(treeContainer).append("svg")
+                .attr("width", width)
+                .attr("height", height)
+                .attr("viewBox", `0 0 ${width} ${height}`)
+                .attr("preserveAspectRatio", "xMidYMid meet"); 
+
+            // 줌 및 드래그 동작 정의
+            const zoomBehavior = d3.zoom()
+                .scaleExtent([0.1, 4]) 
+                .on("zoom", (event) => {
+                    g.attr("transform", event.transform);
+                });
+
+            const g = svg.call(zoomBehavior)
+                .on("dblclick.zoom", null) // 더블 클릭 줌 기본 동작 방지
+                .append("g")
+                .attr("transform", `translate(${margin.left}, ${margin.top})`);
+            
+            // 초기 위치 조정: 루트 노드를 중앙 상단에 배치
+            g.attr("transform", `translate(${width / 2}, ${margin.top})`);
+
+            // 2. 트리 레이아웃 정의 (세로 구조)
+            const treeLayout = d3.tree()
+                // 노드 크기 정의: 수평 간격을 190px (노드 폭 180px + 여백 10px)로 줄였습니다.
+                .nodeSize([nodeWidth + 10, nodeSeparation]); 
+
+            // 3. 계층 구조 생성 및 레이아웃 적용
+            const root = d3.hierarchy(rootData);
+            const treeData = treeLayout(root);
+
+            // 4. Links (연결선)
+            g.selectAll(".link")
+                .data(treeData.links())
+                .enter().append("path")
+                .attr("class", "link")
+                .attr("fill", "none")
+                .attr("stroke", "#9CA3AF") // Gray-400
+                .attr("stroke-width", 2)
+                .attr("d", d3.linkVertical()
+                    .x(d => d.x)
+                    .y(d => d.y));
+
+            // 5. Nodes (사용자 카드)
+            const node = g.selectAll(".node")
+                .data(treeData.descendants())
+                .enter().append("g")
+                .attr("class", d => "node" + (d.children ? " node--internal" : " node--leaf"))
+                .attr("transform", d => `translate(${d.x},${d.y})`);
+
+            // 6. 카드 배경 (직사각형)
+            node.append("rect")
+                .attr("width", nodeWidth)
+                .attr("height", nodeHeight)
+                .attr("x", -nodeWidth / 2) // X 중앙
+                .attr("y", -nodeHeight / 2) // Y 중앙
+                .attr("rx", 8) // 둥근 모서리
+                .attr("ry", 8)
+                .attr("fill", "#ffffff")
+                .attr("stroke", d => d.data['유저_ID'] === 'ROOT' ? "#EAB308" : "#4F46E5") // 루트 강조
+                .attr("stroke-width", 3)
+                .attr("filter", "url(#shadow)"); // 그림자 필터 적용 (SVG 필터는 JS 아래에 정의)
+                
+            // 7. 텍스트 콘텐츠 (정보)
+            // A. 이름 및 ID
+            node.append("text")
+                .attr("dy", "-18") 
+                .attr("text-anchor", "middle")
+                .attr("class", "text-sm font-bold")
+                .text(d => d.data['유저_이름'] + (d.data['유저_ID'] !== 'ROOT' ? ' (' + d.data['유저_ID'] + ')' : ''))
+                .attr("fill", "#1F2937"); 
+
+            // B. 직대 및 총 하위
+            node.append("text")
+                .attr("dy", "0") 
+                .attr("text-anchor", "middle")
+                .attr("class", "text-xs")
+                .text(d => d.data['유저_ID'] !== 'ROOT' ? `직대: ${d.data['직속_하위_수']} | 총 하위: ${d.data['총_하위_수']}` : `총 루트 하위: ${d.data['직속_하위_수']}`)
+                .attr("fill", "#4B5563");
+                
+            // C. 포인트
+            node.append("text")
+                .attr("dy", "18") 
+                .attr("text-anchor", "middle")
+                .attr("class", "text-xs font-semibold")
+                .text(d => `포인트: ${d.data['총_기여_포인트']}`)
+                .attr("fill", "#DC2626"); 
+            
+            // 8. SVG 필터 (카드 그림자 효과) 정의
+            const defs = svg.append("defs");
+
+            defs.append("filter")
+                .attr("id", "shadow")
+                .attr("x", "-50%")
+                .attr("y", "-50%")
+                .attr("width", "200%")
+                .attr("height", "200%")
+                .append("feDropShadow")
+                .attr("dx", 0)
+                .attr("dy", 2)
+                .attr("stdDeviation", 3)
+                .attr("flood-color", "rgba(0,0,0,0.1)");
+        }
+        
+        /**
+         * 테이블 뷰와 트리 뷰를 전환합니다.
+         */
+        function toggleView() {
+            const toggle = document.getElementById('view-toggle');
+            isTableView = !toggle.checked; 
+            
+            if (isTableView) {
+                tableView.classList.remove('hidden');
+                treeView.classList.add('hidden');
+                renderTable(filteredData);
+            } else {
+                tableView.classList.add('hidden');
+                treeView.classList.remove('hidden');
+                renderTree(filteredData); 
             }
         }
         
-        /* ======================================================= */
-        /* [4] GoJS 초기화 및 이벤트 바인딩 */
-        /* ======================================================= */
+        /**
+         * 짧은 메시지를 사용자에게 표시합니다.
+         */
+        function showTransientMessage(message, className) {
+            statusMessage.innerHTML = message;
+            statusMessage.className = `mt-4 p-3 rounded-lg ${className}`;
+            statusMessage.classList.remove('hidden');
 
-        function init() {
-            if (typeof go === 'undefined') {
-                 document.getElementById("orgChartDiv").innerHTML = `<p style="color: red; padding: 20px;">**치명적 오류:** 조직도 엔진 로딩 실패. 인터넷 연결을 확인하세요.</p>`;
-                 return; 
-            }
-            
-            if (window.innerWidth <= 600) {
-                closeFeatureInfo();
-                selectedNodeInfoDiv.style.display = 'none';
-            }
-
-            myDiagram =
-                $(go.Diagram, "orgChartDiv", 
-                {
-                    initialAutoScale: go.Diagram.Uniform, 
-                    layout: $(go.TreeLayout,             
-                                { angle: 90, nodeSpacing: 20, layerSpacing: 70 }), 
-                    "undoManager.isEnabled": true,      
-                    "click": function(e) {               
-                        clearNodeInfo();
-                        // 캔버스 배경 클릭 시 기능 안내 박스 닫기
-                        closeFeatureInfo();
-                    }
-                });
-            
-            const nodeSelectionAdornmentTemplate =
-                $(go.Adornment, "Auto",
-                    $(go.Shape, "RoundedRectangle",
-                        { fill: null, stroke: "dodgerblue", strokeWidth: 3 }),
-                    $(go.Placeholder) 
-                );
-
-            myDiagram.nodeTemplate = 
-                $(go.Node, "Auto",
-                    { selectionAdornmentTemplate: nodeSelectionAdornmentTemplate },
-                    new go.Binding("location", "loc", go.Point.parse).makeTwoWay(go.Point.stringify),
-                    {
-                        click: function(e, node) {
-                            showNodeDetails(node.data);
-                            showNodeInfo();
-                        }
-                    },
-                    $(go.Shape, "RoundedRectangle",
-                        { name: "shapeElement", strokeWidth: 2, stroke: "#224488" },
-                        new go.Binding("fill", "isHighlighted", function(h, shape) {
-                            if (h) return "#A9A9A9"; 
-                            
-                            if (shape.part.data.isRoot && !isSubtreeView) return "#ff9933"; 
-                            if (shape.part.data.isRoot && isSubtreeView) return "#009688"; 
-                            
-                            const count = shape.part.data.총_하위_수;
-                            
-                            if (count >= 70) return "#E91E63";      
-                            if (count >= 30) return "#FFC107";      
-                            if (count >= 10) return "#00BCD4";      
-                            
-                            return "#66bb6a";                       
-                        })
-                    ),
-                    
-                    $(go.TextBlock, "Default Info",
-                        { 
-                            margin: 10, 
-                            font: "bold 16pt Arial, sans-serif",
-                            stroke: "white", 
-                            textAlign: "center" 
-                        },
-                        new go.Binding("text", "", formatNodeText)
-                    )
-                );
-
-            myDiagram.linkTemplate = 
-                $(go.Link, go.Link.Orthogonal, { corner: 5 }, 
-                    $(go.Shape, { strokeWidth: 1.5, stroke: "#555" }));
-            
-            fetchDataAndBuildChart(myDiagram, true); 
+            setTimeout(() => {
+                statusMessage.classList.add('hidden');
+            }, 5000);
         }
 
-        window.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
