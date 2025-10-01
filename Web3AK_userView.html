@@ -21,31 +21,30 @@
             position: relative; 
         }
         
-        /* [2] 노드 상세 정보 (우측 상단 - 데스크톱 기본) */
+        /* [2] 노드 상세 정보 (수정됨: 좌측 상단, top: 70px) */
         .node-info { 
             position: absolute; 
-            top: 70px; 
-            left: 10px; 
+            top: 70px; /* 상세 정보 박스 위치 상단 조정 */
+            left: 10px; /* 좌측 상단으로 배치 */
             max-width: 380px; 
             text-align: left; 
             
-            padding: 15px; /* 좌우 여백 확보 */
+            padding: 15px;
             border: 1px solid #ddd; 
             background-color: rgba(255, 255, 255, 0.95); 
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             z-index: 100; 
         }
-        /* 상세 정보 내부 텍스트 최적화: 긴 지갑 주소 자동 줄바꿈 */
         .node-info p {
-            word-wrap: break-word; /* 긴 텍스트 줄바꿈 */
+            word-wrap: break-word; 
             word-break: break-all;
         }
         
-        /* [3] 기능 안내 박스 (좌측 상단 - 데스크톱 기본) */
+        /* [3] 기능 안내 박스 (수정됨: 우측 상단, top: 95px) */
         .feature-info {
             position: absolute; 
-            top: 95px; 
-            right: 40px; 
+            top: 95px; /* 기능 박스 위치 */
+            right: 40px; /* 우측 상단으로 배치 */
             max-width: 400px; 
             text-align: left; 
             
@@ -72,7 +71,7 @@
             margin-bottom: 5px;
         }
         
-        /* [4] 검색 UI 스타일 (데스크톱 기본) */
+        /* [4] 검색 UI 스타일 */
         .search-container {
             margin-top: 15px;
             margin-bottom: 15px;
@@ -93,35 +92,30 @@
             margin-left: 5px; 
         }
         #featureToggleButton {
-            background-color: #f8f9fa; /* 기능 탭: 흰색 (모바일에서만 버튼화) */
+            background-color: #f8f9fa;
             color: #212529; 
             border: 1px solid #ccc;
         }
         #clearSearchButton {
-            background-color: #6c757d; /* 클리어 탭: 짙은 회색 */
+            background-color: #6c757d;
         }
         #searchButton {
-            background-color: #007bff; /* 검색 탭: 기존 컬러 유지 */
+            background-color: #007bff;
         }
         
-        /* 버튼 hover 효과 (데스크톱 용) */
+        /* 버튼 hover 효과 */
         #searchButton:hover { background-color: #0056b3; }
         #clearSearchButton:hover { background-color: #5a6268; }
         #featureToggleButton:hover { background-color: #e2e6ea; }
 
-        /* [5] 모바일 최적화 (@media 쿼리 - Max-width 600px 이하 적용) */
+        /* [5] 모바일 최적화 */
         @media (max-width: 600px) {
             h2 { font-size: 1.2em; margin-bottom: 5px;}
-            
-            /* 조직도 뷰 높이 조정 */
-            #orgChartDiv {
-                height: 75vh;
-            }
+            #orgChartDiv { height: 75vh; }
 
-            /* 검색 컨테이너: 검색창은 전체 너비, 버튼 3개는 다음 줄에 배치 */
+            /* 검색 UI 모바일 최적화 */
             .search-container {
                 margin: 10px 10px 5px 10px;
-                padding: 0;
                 display: flex;
                 flex-direction: column; 
             }
@@ -130,7 +124,6 @@
                 margin-bottom: 5px; 
                 box-sizing: border-box;
             }
-            /* 버튼 3개 컨테이너 */
             .button-row {
                 display: flex;
                 justify-content: space-between;
@@ -147,7 +140,7 @@
                 margin-right: 0;
             }
             
-            /* 노드 상세 정보 (node-info): 모바일 상단으로 고정 */
+            /* 노드 상세 정보 (모바일 상단으로 고정) */
             .node-info { 
                 position: static; 
                 max-width: 100%; 
@@ -158,7 +151,7 @@
                 margin: 5px 0 0 0;
             }
 
-            /* 기능 안내 (feature-info): 모바일 뷰 위에 겹치도록 고정 */
+            /* 기능 안내 (모바일 뷰 위에 겹치도록 고정) */
             .feature-info {
                 position: fixed; 
                 top: 50px; 
@@ -206,28 +199,24 @@
     <script>
         // Google Apps Script 웹 앱 URL (데이터 API 엔드포인트)
         const API_URL = "https://script.google.com/macros/s/AKfycbyiqN24ws77h9-DgeN3LkuEiK39azcSZXsS6_L8S_UvvcwUJmY0b-2wLK_xzKtmmNqRlQ/exec"; 
-        // GoJS 객체 생성을 위한 약식 정의
         const $ = go.GraphObject.make; 
         
         let myDiagram = null; 
         
         function init() {
-            // 다이어그램 초기화
             myDiagram =
                 $(go.Diagram, "orgChartDiv", 
                 {
-                    // initialAutoScale: go.Diagram.Uniform, // 전체 노드 확대 금지
-                    layout: $(go.TreeLayout, // 조직도(Tree) 레이아웃 설정
+                    layout: $(go.TreeLayout, 
                                 { angle: 90, nodeSpacing: 10, layerSpacing: 50 }),
                     "undoManager.isEnabled": true, 
                     "click": function(e) {
-                        // 빈 공간 클릭 시 상세 정보 초기화 및 기능 안내 닫기
                         document.getElementById("selectedNodeInfo").innerHTML = "노드를 선택하면 상세 정보가 표시됩니다.";
                         closeFeatureInfo(e);
                     }
                 });
 
-        // 노드 템플릿 정의: 각 유저 박스의 디자인과 동작 설정
+        // 노드 템플릿 정의
         myDiagram.nodeTemplate = 
             $(go.Node, "Auto",
                 { selectionAdornmentTemplate: nodeSelectionAdornmentTemplate },
@@ -235,7 +224,7 @@
                 {
                     click: function(e, node) {
                         showNodeDetails(node.data);
-                        closeFeatureInfo(e); // 노드 클릭 시 기능 안내 닫기
+                        closeFeatureInfo(e); 
                     }
                 },
                 // 노드 배경 도형 (RoundedRectangle)
@@ -244,7 +233,6 @@
                     
                     new go.Binding("fill", "isHighlighted", function(h, shape) {
                         if (h) return "#A9A9A9"; 
-                        // isHighlighted가 false일 경우, isRoot 속성을 사용하여 원래의 색상으로 복구
                         return shape.part.data.isRoot ? "#ff9933" : "#66bb6a"; 
                     })
                 ),
@@ -277,16 +265,14 @@
             // API에서 데이터 로드 및 차트 구성 시작
             fetchDataAndBuildChart(myDiagram);
             
-            // --- [JS 로직: 검색 및 클리어] ---
+            // --- [JS 로직: 검색 및 토글 통합] ---
             const searchInput = document.getElementById('searchInput');
             const clearButton = document.getElementById('clearSearchButton');
             const featureToggleButton = document.getElementById('featureToggleButton');
             const featureInfoDiv = document.getElementById('featureInfo');
 
-            // 검색창에 keyup 이벤트 바인딩
             searchInput.addEventListener('keyup', highlightNodes); 
 
-            // 클리어 로직 함수
             function clearSearchAndUnhighlight() {
                 searchInput.value = '';
                 highlightNodes(); 
@@ -308,31 +294,22 @@
                 closeFeatureInfo(); 
             });
 
-            // --- [JS 로직: 기능 안내 토글] ---
-
             // 기능 안내 팝업을 닫는 함수
             function closeFeatureInfo() {
                 featureInfoDiv.classList.remove('active');
             }
 
-            // 기능 안내 팝업을 열거나 닫는 함수
-            function toggleFeatureInfo() {
-                featureInfoDiv.classList.toggle('active');
-            }
-
             // '기능' 버튼 클릭 이벤트 리스너
-            featureToggleButton.addEventListener('click', toggleFeatureInfo);
+            featureToggleButton.addEventListener('click', function() {
+                featureInfoDiv.classList.toggle('active');
+            });
 
-            // 팝업 외부 클릭 시 닫히는 로직 (body 클릭 감지)
+            // 팝업 외부 클릭 시 닫히는 로직
             document.body.addEventListener('click', function(event) {
                 const target = event.target;
-                
-                // 클릭된 요소가 featureInfoDiv 자신이거나 그 자식이거나, featureToggleButton인 경우 무시
                 if (featureInfoDiv.contains(target) || target === featureToggleButton) {
                     return;
                 }
-                
-                // featureInfoDiv가 열려있는 경우 닫기
                 if (featureInfoDiv.classList.contains('active')) {
                     closeFeatureInfo();
                 }
@@ -384,7 +361,6 @@
                         // isRoot: true 인 노드를 찾습니다.
                         const rootData = diagram.model.nodeDataArray.find(d => d.isRoot);
                         if (!rootData) {
-                            // 최상위 노드가 없을 경우 첫 노드를 중심으로 설정 (비상 플랜)
                             diagram.centerPart(diagram.nodes.iterator.value);
                             diagram.commitTransaction("Initial Root Zoom");
                             return;
@@ -424,7 +400,7 @@
                 });
         }
 
-        // 노드 클릭 시 우측 상단에 상세 정보를 표시하는 함수
+        // 노드 클릭 시 상세 정보를 표시하는 함수
         function showNodeDetails(data) {
             const detailsDiv = document.getElementById("selectedNodeInfo");
             detailsDiv.innerHTML = `
