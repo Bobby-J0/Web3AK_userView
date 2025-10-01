@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Web3AK: 실시간 Web3 유저 관계 분석 & 조직도</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://unpkg.com/gojs@2.3.11/release/go.js"></script>
     <style>
         /* [1] 뷰어 및 기본 레이아웃 */
@@ -39,7 +40,8 @@
         .feature-info {
             position: absolute; 
             top: 95px; /* 40px 아래로 조정된 위치 유지 */
-            left: 20px; /* ✅ 사용자 요청: 좌측 20px 위치 유지 */
+            /* left 값을 10px로 조정 */
+            left: 10px; 
             max-width: 380px; 
             text-align: left; 
             
@@ -70,7 +72,7 @@
             padding: 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
-            width: 300px; /* 검색창 너비 증가 */
+            width: 300px; /* 검색창 너비 유지 */
         }
         .search-container button {
             padding: 8px 15px;
@@ -100,7 +102,7 @@
             <li>**데이터 연동:** Google Sheets 데이터 실시간 자동 반영</li>
             <li>**노드 상세:** 클릭 시 우측 상단에 지갑 주소 등 상세 정보 표시</li>
             <li>**기본 조작:** 조직도 확대/축소 및 이동</li>
-            <li>**실시간 검색:** 이름/연락처/지갑주소로 입력 즉시 노드 자동 강조 (부분 일치)</li>
+            <li>**검색:** 이름/연락처/지갑주소로 입력 즉시 노드 자동 강조 (부분 일치)</li>
         </ul>
     </div>
 
@@ -148,7 +150,7 @@
                 $(go.Shape, "RoundedRectangle",
                     { name: "shapeElement", strokeWidth: 2, stroke: "#224488" },
                     
-                    // ✅ 수정: 실시간 강조 색상 바인딩이 최우선 적용되도록 로직 변경 (노드 배경색 변경)
+                    // 실시간 강조 색상 바인딩이 최우선 적용: isHighlighted에 따라 노드 배경색 변경
                     new go.Binding("fill", "isHighlighted", function(isHighlighted, shape) {
                         if (isHighlighted) return "#ff0000"; // 검색 일치 시 빨간색으로 강력히 강조
                         // isHighlighted가 false일 경우, isRoot 속성을 사용하여 원래의 색상으로 복구
