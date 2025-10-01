@@ -162,8 +162,9 @@
             <!-- Table View (지표 보기) - 기본적으로 숨겨짐 -->
             <div id="table-view" class="table-wrapper bg-white rounded-xl shadow-lg p-4 overflow-y-auto max-h-[calc(100vh-280px)] hidden">
                 <table id="data-table" class="min-w-full divide-y divide-gray-200"> 
-                    <!-- 테이블 내용 스크롤 시 헤더 고정 -->
-                    <thead class="bg-gray-50 sticky top-0 z-10 shadow-sm">
+                    <!-- Headers will be inserted here -->
+                    <!-- *** 이 부분을 수정했습니다: bg-gray-50 -> bg-white, z-10 -> z-20, shadow-sm -> shadow-md *** -->
+                    <thead class="bg-white sticky top-0 z-20 shadow-md">
                         <tr id="table-header">
                             <!-- Headers will be inserted here -->
                         </tr>
@@ -223,7 +224,7 @@
         };
         
         // =========================================================
-        // 상세 정보 박스 상호작용 로직
+        // 상세 정보 박스 상호작용 로직 (연락처 위치 수정 사항 유지)
         // =========================================================
         
         /**
@@ -258,7 +259,7 @@
                             <span class="text-indigo-500 block">${data['상위_노드_지갑_주소'] || '없음 (최상위 노드)'}</span>
                         </div>
                         
-                        <!-- 3. 연락처 (위치 변경) -->
+                        <!-- 3. 연락처 (위치 변경 유지) -->
                         <p class="text-sm text-gray-600">
                             <span class="font-semibold text-gray-800">연락처:</span> ${data['연락처'] || '정보 없음'}
                         </p>
@@ -476,9 +477,13 @@
 
                 filteredData.sort((a, b) => {
                     if (isNumericSort) {
-                        return compareNumber(a[keyToSort], b[keyToSort], sortDirection);
+                        // compareNumber 함수는 direction 변수명을 사용하지 않고 sortDirection을 바로 사용하도록 수정 필요
+                        if (sortDirection === 'asc') return a[keyToSort] - b[keyToSort]; 
+                        if (sortDirection === 'desc') return b[keyToSort] - a[keyToSort]; 
+                        return 0;
                     } else {
-                        return compareAlphaNumeric(String(a[keyToSort] || ''), String(b[keyToSort] || ''), direction);
+                        // compareAlphaNumeric 함수는 direction 변수명을 사용하지 않고 sortDirection을 바로 사용하도록 수정 필요
+                        return compareAlphaNumeric(String(a[keyToSort] || ''), String(b[keyToSort] || ''), sortDirection);
                     }
                 });
             }
