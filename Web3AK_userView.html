@@ -4,6 +4,39 @@
     <meta charset="UTF-8">
     <title>Web3AK 조직도</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <script>
+    if (typeof Object.assign !== 'function') {
+      // Object.assign 구현: 브라우저가 이 기능을 지원하지 않을 경우 수동으로 정의
+      Object.defineProperty(Object, "assign", {
+        value: function assign(target, varArgs) {
+          'use strict';
+          if (target === null || target === undefined) {
+            throw new TypeError('Cannot convert undefined or null to object');
+          }
+
+          var to = Object(target);
+
+          for (var index = 1; index < arguments.length; index++) {
+            var nextSource = arguments[index];
+
+            if (nextSource !== null && nextSource !== undefined) {
+              for (var nextKey in nextSource) {
+                // 상속된 속성은 건너뜁니다.
+                if (Object.prototype.hasOwnProperty.call(nextSource, nextKey)) {
+                  to[nextKey] = nextSource[nextKey];
+                }
+              }
+            }
+          }
+          return to;
+        },
+        writable: true,
+        configurable: true
+      });
+    }
+    </script>
+    
     <script src="https://unpkg.com/gojs@2.3.11/release/go.js"></script> 
     <style>
         /* (스타일 시트 내용은 이전과 동일합니다. 변경 없음) */
@@ -20,68 +53,16 @@
             padding: 0;
             position: relative; 
         }
-        
-        /* [2] 노드 상세 정보 */
-        .node-info { 
-            position: absolute; 
-            top: 70px; 
-            left: 10px; 
-            max-width: 380px; 
-            text-align: left; 
-            padding: 15px;
-            border: 1px solid #ddd; 
-            background-color: rgba(255, 255, 255, 0.95); 
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            z-index: 100; 
-        }
-        /* ... 기타 스타일 유지 ... */
-        .feature-info {
-            position: absolute; 
-            top: 95px; 
-            right: 40px; 
-            max-width: 400px; 
-            text-align: left; 
-            padding: 15px; 
-            border: 1px solid #ccc; 
-            background-color: rgba(255, 255, 255, 0.95);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            z-index: 100;
-            font-size: 13px;
-            display: none;
-        }
-        .feature-info.active {
-            display: block; 
-        }
-        .search-container {
-            margin-top: 15px;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-        #searchInput {
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            width: 300px; 
-        }
-        .search-container button {
-            padding: 8px 15px;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-left: 5px; 
-        }
-        #featureToggleButton {
-            background-color: #f8f9fa;
-            color: #212529; 
-            border: 1px solid #ccc;
-        }
-        #clearSearchButton {
-            background-color: #6c757d;
-        }
-        #searchButton {
-            background-color: #007bff;
-        }
+        /* ... 이하 스타일 유지 ... */
+        .node-info { position: absolute; top: 70px; left: 10px; max-width: 380px; text-align: left; padding: 15px; border: 1px solid #ddd; background-color: rgba(255, 255, 255, 0.95); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); z-index: 100; }
+        .feature-info { position: absolute; top: 95px; right: 40px; max-width: 400px; text-align: left; padding: 15px; border: 1px solid #ccc; background-color: rgba(255, 255, 255, 0.95); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); z-index: 100; font-size: 13px; display: none; }
+        .feature-info.active { display: block; }
+        .search-container { margin-top: 15px; margin-bottom: 15px; text-align: center; }
+        #searchInput { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 300px; }
+        .search-container button { padding: 8px 15px; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 5px; }
+        #featureToggleButton { background-color: #f8f9fa; color: #212529; border: 1px solid #ccc; }
+        #clearSearchButton { background-color: #6c757d; }
+        #searchButton { background-color: #007bff; }
         #searchButton:hover { background-color: #0056b3; }
         #clearSearchButton:hover { background-color: #5a6268; }
         #featureToggleButton:hover { background-color: #e2e6ea; }
@@ -117,15 +98,14 @@
     <script>
         const API_URL = "https://script.google.com/macros/s/AKfycbyiqN24ws77h9-DgeN3LkuEiK39azcSZXsS6_L8S_UvvcwUJmY0b-2wLK_xzKtmmNqRlQ/exec"; 
         
-        // GoJS 라이브러리가 완전히 로드되었는지 확인
+        // GoJS 객체 로딩 여부 확인
         if (typeof go === 'undefined') {
-            document.getElementById("orgChartDiv").innerHTML = `<p style="color: red; padding: 20px;">**오류:** GoJS 라이브러리가 로드되지 않았습니다. 인터넷 연결 및 스크립트 경로를 확인하세요.</p>`;
+            document.getElementById("orgChartDiv").innerHTML = `<p style="color: red; padding: 20px;">**치명적 오류:** GoJS 라이브러리가 로드되지 않았거나, 브라우저 호환성 문제(Object.assign 오류 등)로 인해 초기화에 실패했습니다. 최신 Chrome, Firefox 또는 Edge 브라우저를 사용해 보십시오.</p>`;
         } else {
             const $ = go.GraphObject.make; 
             let myDiagram = null; 
             
             function init() {
-                // 이 시점에서는 go 객체가 확실히 존재합니다.
                 myDiagram =
                     $(go.Diagram, "orgChartDiv", 
                     {
@@ -136,11 +116,10 @@
                             document.getElementById("selectedNodeInfo").innerHTML = "노드를 선택하면 상세 정보가 표시됩니다.";
                             closeFeatureInfo(e);
                         },
-                        // 중앙 상단 정렬을 위한 기본 설정 유지
                         initialContentAlignment: go.Spot.TopCenter 
                     });
 
-                // 노드 템플릿 정의 (이전과 동일)
+                // --- 노드 및 링크 템플릿 정의 (변경 없음) ---
                 myDiagram.nodeTemplate = 
                     $(go.Node, "Auto",
                         { selectionAdornmentTemplate: nodeSelectionAdornmentTemplate },
@@ -153,39 +132,28 @@
                         },
                         $(go.Shape, "RoundedRectangle",
                             { name: "shapeElement", strokeWidth: 2, stroke: "#224488" },
-                            
                             new go.Binding("fill", "isHighlighted", function(h, shape) {
                                 if (h) return "#FF9933"; 
                                 return shape.part.data.isRoot ? "#ff9933" : "#66bb6a"; 
                             })
                         ),
-                        
                         $(go.TextBlock, "Default Info",
-                            { 
-                                margin: 8, 
-                                font: "bold 14pt Arial, sans-serif",
-                                stroke: "white", 
-                                textAlign: "center" 
-                            },
+                            { margin: 8, font: "bold 14pt Arial, sans-serif", stroke: "white", textAlign: "center" },
                             new go.Binding("text", "", function(data) {
                                 const name = data.유저_이름 || '이름 없음';
                                 const userId = data.유저_ID;
-                                let totalCountLine = "";
-                                if (data.총_하위_수 && data.총_하위_수 > 0) {
-                                    totalCountLine = `\n(총 ${data.총_하위_수}명)`;
-                                }
+                                let totalCountLine = (data.총_하위_수 && data.총_하위_수 > 0) ? `\n(총 ${data.총_하위_수}명)` : "";
                                 return `${name}\n${userId}${totalCountLine}`; 
                             })
                         )
                     );
 
-                // 링크 템플릿 정의 (이전과 동일)
                 myDiagram.linkTemplate = 
                     $(go.Link, go.Link.Orthogonal, { corner: 5 },
                         $(go.Shape, { strokeWidth: 1.5, stroke: "#555" }));
+                // --- 노드 및 링크 템플릿 정의 끝 ---
                 
                 // ✅ 최종 중앙 정렬 로직 (LayoutCompleted 리스너)
-                // 최상위 노드 + Level 1 자식 영역을 계산하여 뷰포트를 설정합니다.
                 myDiagram.addDiagramListener("LayoutCompleted", function(e) {
                     const diagram = e.diagram;
                     const rootData = diagram.model.nodeDataArray.find(d => d.isRoot);
@@ -201,17 +169,15 @@
                             initialGroup.add(rootNode);
                             
                             rootNode.findTreeChildrenNodes().each(child => {
-                                // 이 자식 노드가 루트의 직속 자식인지 확인 (레벨 1)
+                                // 레벨 1 자식만 포함
                                 if (child.data.parent === rootNode.data.key) {
                                     initialGroup.add(child);
                                 }
                             });
                             
                             if (initialGroup.count > 0) {
-                                // 이 노드들의 경계 (Bounds) 계산
                                 const bounds = diagram.computeBounds(initialGroup);
-                                
-                                // 계산된 경계를 뷰포트로 설정 (중앙 이동 + 확대/축소)
+                                // setViewportBounds를 사용하여 중앙 이동 + 확대/축소
                                 diagram.setViewportBounds(bounds, diagram.scale * 1.1);
                             } else {
                                 // 직속 자식이 없으면 Root 노드만 중앙에 배치
@@ -224,10 +190,9 @@
                     }
                 });
                 
-                // API에서 데이터 로드 및 차트 구성 시작
                 fetchDataAndBuildChart(myDiagram);
                 
-                // --- [JS 로직: 검색 및 토글 통합 - 이전과 동일] ---
+                // --- [JS 로직: 검색 및 토글 통합 - 변경 없음] ---
                 const searchInput = document.getElementById('searchInput');
                 const clearButton = document.getElementById('clearSearchButton');
                 const featureToggleButton = document.getElementById('featureToggleButton');
@@ -274,7 +239,7 @@
                 // --- [JS 로직 통합 종료] ---
             }
 
-            // 구글 시트 API에서 데이터를 가져와 GoJS 모델을 구성하고 초기 뷰를 설정하는 함수 (변경 없음)
+            // 데이터 로드 및 기타 함수 (변경 없음)
             function fetchDataAndBuildChart(diagram) {
                 fetch(API_URL)
                     .then(response => {
@@ -305,7 +270,6 @@
                     });
             }
 
-            // 노드 클릭 시 상세 정보를 표시하는 함수 (변경 없음)
             function showNodeDetails(data) {
                 const detailsDiv = document.getElementById("selectedNodeInfo");
                 detailsDiv.innerHTML = `
@@ -317,7 +281,6 @@
                 `;
             }
             
-            // 실시간 검색 강조 함수 (스크롤 로직 안정화)
             function highlightNodes() {
                 if (!myDiagram || !myDiagram.model) return;
                 
@@ -354,7 +317,6 @@
                 myDiagram.commitTransaction("highlight search results");
                 
                 if (firstFoundNode) {
-                    // 검색된 노드의 영역으로 스크롤하여 중앙에 위치시킵니다.
                     if (firstFoundNode.actualBounds) {
                         myDiagram.scrollToRect(firstFoundNode.actualBounds);
                     }
@@ -366,7 +328,6 @@
                 }
             }
 
-            // 노드 선택 시 표시되는 테두리 디자인 정의 (Adornment)
             const nodeSelectionAdornmentTemplate =
                 $(go.Adornment, "Auto",
                     $(go.Shape, "RoundedRectangle",
@@ -374,9 +335,8 @@
                     $(go.Placeholder)
                 );
 
-            // ✅ 강화된 안전장치: HTML 문서 로드가 완료된 후 init 함수 실행
             window.addEventListener('DOMContentLoaded', init);
-        } // end of if (typeof go === 'undefined') else block
+        }
     </script>
 </body>
 </html>
