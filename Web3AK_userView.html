@@ -21,10 +21,10 @@
             position: relative; 
         }
         
-        /* [2] 노드 상세 정보 (우측 상단) */
+        /* [2] 노드 상세 정보 (우측 상단 - 데스크톱 기본) */
         .node-info { 
             position: absolute; 
-            top: 95px; /* 위치 유지 */
+            top: 95px; 
             right: 40px; 
             max-width: 380px; 
             text-align: left; 
@@ -36,11 +36,11 @@
             z-index: 100; 
         }
         
-        /* [3] 기능 안내 박스 (좌측 상단) */
+        /* [3] 기능 안내 박스 (좌측 상단 - 데스크톱 기본) */
         .feature-info {
             position: absolute; 
-            top: 95px; /* 위치 유지 */
-            left: 10px; /* 위치 유지 */
+            top: 95px; 
+            left: 10px; 
             max-width: 400px; 
             text-align: left; 
             
@@ -61,7 +61,7 @@
             margin-bottom: 5px;
         }
         
-        /* [4] 검색 UI 스타일 */
+        /* [4] 검색 UI 스타일 (데스크톱 기본) */
         .search-container {
             margin-top: 15px;
             margin-bottom: 15px;
@@ -71,7 +71,7 @@
             padding: 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
-            width: 300px; /* 검색창 너비 유지 */
+            width: 300px; 
         }
         .search-container button {
             padding: 8px 15px;
@@ -80,10 +80,10 @@
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            margin-left: 5px; /* 버튼 간격 추가 */
+            margin-left: 5px; 
         }
         #clearSearchButton {
-            background-color: #6c757d; /* Clear 버튼 색상 구분 */
+            background-color: #6c757d; 
         }
         .search-container button:hover {
             background-color: #0056b3;
@@ -91,7 +91,63 @@
         #clearSearchButton:hover {
             background-color: #5a6268;
         }
-        
+
+        /* [5] 모바일 최적화 (@media 쿼리 - Max-width 600px 이하 적용) */
+        @media (max-width: 600px) {
+            /* 조직도 뷰 높이 조정 */
+            #orgChartDiv {
+                height: 70vh; /* 모바일에서 기능 박스를 위한 공간 확보 */
+            }
+
+            /* 노드 상세 정보 (selectedNodeInfo) 박스 위치 및 크기 조정 */
+            .node-info { 
+                position: static; /* 고정 위치 해제 */
+                top: auto; 
+                right: auto;
+                max-width: 100%; 
+                padding: 10px;
+                box-shadow: none; /* 그림자 제거로 간결화 */
+                border-left: none;
+                border-right: none;
+                margin-top: 5px;
+            }
+
+            /* 기능 안내 (feature-info) 박스 위치 및 크기 조정 */
+            .feature-info {
+                position: static; /* 고정 위치 해제 */
+                top: auto; 
+                left: auto;
+                max-width: 100%; 
+                padding: 10px;
+                box-shadow: none; /* 그림자 제거로 간결화 */
+                border-left: none;
+                border-right: none;
+                font-size: 12px;
+            }
+
+            /* 검색 컨테이너의 마진 조정 */
+            .search-container {
+                margin-top: 10px;
+                margin-bottom: 5px;
+                padding: 0 10px; /* 좌우 패딩 추가 */
+            }
+            
+            /* 검색창 너비 조정 및 버튼 너비 조정 */
+            #searchInput {
+                width: 100%; /* 모바일에서 전체 너비 사용 */
+                margin-bottom: 5px; /* 버튼과의 간격 확보 */
+            }
+            .search-container button {
+                width: 48%; /* 검색과 클리어 버튼이 반반씩 차지하도록 */
+                display: inline-block;
+                box-sizing: border-box; /* 패딩, 보더가 너비에 포함되도록 */
+                margin-left: 0;
+            }
+            #clearSearchButton {
+                margin-left: 0;
+                margin-right: 4%; /* 검색 버튼과의 간격 확보 */
+            }
+        }
     </style>
 </head>
 <body>
@@ -107,8 +163,8 @@
         <h3>🚀 웹 앱 핵심 기능</h3>
         <ul>
             <li>**데이터 연동:** Google Sheets 데이터 실시간 자동 반영</li>
-            <li>**노드 상세:** 클릭 시 우측 상단에 지갑 주소 등 상세 정보 표시</li>
-            <li>**검색:** 이름/연락처/일부 지갑주소로 입력 즉시 노드 자동 강조 (부분 일치)</li>
+            <li>**노드 상세:** 클릭 시 상세 정보 표시</li>
+            <li>**검색:** 이름/연락처/지갑주소로 입력 즉시 노드 자동 강조 (부분 일치)</li>
             <li>**검색 초기화:** ESC 키 또는 'Clear' 버튼으로 검색 초기화 가능</li>
             <li>**기본 조작:** 조직도 이동 및 확대/축소 (키보드 + 마우스 휠)</li>
         </ul>
@@ -205,7 +261,6 @@
             // 💡 클리어 로직을 함수로 분리하여 ESC 키와 Clear 버튼이 함께 사용하도록 합니다.
             function clearSearchAndUnhighlight() {
                 searchInput.value = ''; // 검색창 내용 클리어
-                // 검색창이 비었을 때 하이라이트를 해제하는 함수를 호출합니다.
                 // highlightNodes()는 빈 검색어로 호출될 경우 모든 노드의 강조를 해제합니다.
                 highlightNodes(); 
             }
@@ -308,13 +363,7 @@
                     if (name.includes(searchText) || userId.includes(searchText) || contact.includes(searchText)) {
                         matches = true;
                     }
-                    // 지갑 주소의 끝 4자리가 일치하는지 확인
-                    // 이 로직은 주석 처리했으므로, 원하는 경우 다시 살릴 수 있습니다.
-                    /* if (!matches && searchText.length >= 4 && wallet.includes(searchText)) {
-                        matches = true;
-                    }
-                    */
-                   // 현재는 전체 지갑 주소에 포함되는지 확인 (더 광범위한 검색)
+                   // 전체 지갑 주소에 포함되는지 확인 (더 광범위한 검색)
                    if (!matches && wallet.includes(searchText)) {
                         matches = true;
                    }
