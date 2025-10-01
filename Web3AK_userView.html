@@ -5,36 +5,6 @@
     <title>Web3AK</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
-    <script>
-    if (typeof Object.assign !== 'function') {
-      Object.defineProperty(Object, "assign", {
-        value: function assign(target, varArgs) {
-          'use strict';
-          if (target === null || target === undefined) {
-            throw new TypeError('Cannot convert undefined or null to object');
-          }
-
-          var to = Object(target);
-
-          for (var index = 1; index < arguments.length; index++) {
-            var nextSource = arguments[index];
-
-            if (nextSource !== null && nextSource !== undefined) {
-              for (var nextKey in nextSource) {
-                if (Object.prototype.hasOwnProperty.call(nextSource, nextKey)) {
-                  to[nextKey] = nextKey;
-                }
-              }
-            }
-          }
-          return to;
-        },
-        writable: true,
-        configurable: true
-      });
-    }
-    </script>
-    
     <script src="https://unpkg.com/gojs@2.3.11/release/go.js"></script>
     
     <style>
@@ -105,9 +75,18 @@
             max-width: 380px; text-align: left; padding: 15px; 
             border: 1px solid #ddd; background-color: rgba(255, 255, 255, 0.95); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
             z-index: 100; transition: all 0.3s ease; 
+            display: none; 
         }
         .node-info button { 
             background-color: #ff6f61; color: white; border: none; padding: 8px 12px; cursor: pointer; border-radius: 4px; margin-top: 10px;
+        }
+
+        /* 💡 [수정] 상세 정보 박스 내 지갑 주소 줄바꿈 강제 적용 */
+        .node-info p {
+            /* 단어 기준으로 줄바꿈되지 않는 긴 문자열을 강제 줄바꿈 */
+            word-break: break-all; 
+            /* 특히 긴 주소 문자열이 박스를 넘지 않도록 보장 */
+            overflow-wrap: break-word; 
         }
         
         /* 기능 안내 박스: 웹에서는 우측 상단에 고정 */
@@ -231,7 +210,7 @@
         </ul>
     </div>
 
-    <div class="node-info" id="selectedNodeInfo">노드를 선택하거나 검색하면 상세 정보가 표시됩니다.</div>
+    <div class="node-info" id="selectedNodeInfo"></div>
 
     <div id="loadingSpinner">
         <div class="spinner"></div>
@@ -248,30 +227,29 @@
         // Google Apps Script API 엔드포인트
         const API_URL = "https://script.google.com/macros/s/AKfycbyiqN24ws77h9-DgeN3LkuEiK39azcSZXsS6_L8S_UvvcwUJmY0b-2wLK_xzKtmmNqRlQ/exec"; 
         const $ = go.GraphObject.make; 
-        
-        let myDiagram = null;           // GoJS 다이어그램 객체
-        let allNodeData = [];           // API에서 로드된 전체 노드 데이터 저장
-        let isSubtreeView = false;      // 현재 서브트리 보기 모드인지 여부
-        let currentSubtreeRootKey = null; // 현재 서브트리 뷰의 루트 노드 Key
 
-        // UI 요소 DOM 캐싱
+        // DOM 요소 캐싱
         const featureInfoDiv = document.getElementById('featureInfo');
         const selectedNodeInfoDiv = document.getElementById('selectedNodeInfo');
         const toggleFeatureButton = document.getElementById('toggleFeatureButton');
         const showAllButton = document.getElementById('showAllButton');
         const loadingSpinner = document.getElementById('loadingSpinner');
         const warningMessageDiv = document.getElementById('warningMessage'); 
+
+        // GoJS 및 데이터 상태 변수
+        let myDiagram = null;           
+        let allNodeData = [];           
+        let isSubtreeView = false;      
+        let currentSubtreeRootKey = null; 
         
         /* ======================================================= */
         /* [2] UI 상태 관리 함수 */
         /* ======================================================= */
 
-        // 로딩 스피너 표시/숨김
         function showLoadingSpinner(show) {
             loadingSpinner.style.display = show ? 'block' : 'none';
         }
         
-        // 데이터 경고 메시지 표시/숨김
         function showWarningMessage(message) {
             if (message) {
                 warningMessageDiv.innerHTML = `⚠️ **데이터 경고:** ${message}`;
@@ -281,7 +259,6 @@
             }
         }
         
-        // 기능 안내 박스 토글 (모바일/웹 공통)
         function toggleFeatureInfo() {
             if (selectedNodeInfoDiv.style.display === 'block') {
                  clearNodeInfo();
@@ -289,46 +266,36 @@
             
             if (featureInfoDiv.style.display === 'none' || featureInfoDiv.style.display === '') {
                 featureInfoDiv.style.display = 'block';
-                toggleFeatureButton.style.backgroundColor = '#dc3545'; // 열림: 빨강
+                toggleFeatureButton.style.backgroundColor = '#dc3545'; 
             } else {
                 featureInfoDiv.style.display = 'none';
-                toggleFeatureButton.style.backgroundColor = '#28a745'; // 닫힘: 녹색
+                toggleFeatureButton.style.backgroundColor = '#28a745'; 
             }
         }
         
-        // 상세 정보 박스 표시 (모바일에서만 필요하며 웹에서는 항상 표시 상태로 CSS에서 제어)
         function showNodeInfo() {
-            if (window.innerWidth <= 600) {
-                selectedNodeInfoDiv.style.display = 'block';
-                // 상세 정보 표시 시, 기능 안내 박스는 숨김
-                if (featureInfoDiv.style.display === 'block') {
-                    featureInfoDiv.style.display = 'none'; 
-                    toggleFeatureButton.style.backgroundColor = '#28a745'; 
-                }
+            selectedNodeInfoDiv.style.display = 'block';
+            if (featureInfoDiv.style.display === 'block') {
+                featureInfoDiv.style.display = 'none'; 
+                toggleFeatureButton.style.backgroundColor = '#28a745'; 
             }
         }
         
-        // 상세 정보 박스 내용 초기화 및 숨김 (모바일)
         function clearNodeInfo() {
-             if (window.innerWidth <= 600) {
-                selectedNodeInfoDiv.style.display = 'none'; 
-            }
-            selectedNodeInfoDiv.innerHTML = "노드를 선택하거나 검색하면 상세 정보가 표시됩니다.";
+            selectedNodeInfoDiv.style.display = 'none'; 
+            selectedNodeInfoDiv.innerHTML = ""; 
         }
 
         /* ======================================================= */
         /* [3] 데이터 유효성 및 차트 관리 로직 */
         /* ======================================================= */
 
-        // 노드 데이터의 Key 및 Parent 유효성 검사
         function validateNodeData(dataArray) {
             const keys = new Set(dataArray.map(d => d.key));
             const invalidNodes = [];
             
             dataArray.forEach(data => {
-                if (!data.key || data.key === "") {
-                    invalidNodes.push(`[Key 누락] 이름: ${data.유저_이름 || '미정'}`);
-                } else if (data.parent && data.parent !== "" && !keys.has(data.parent)) {
+                if (data.parent && data.parent !== "" && !keys.has(data.parent)) {
                     invalidNodes.push(`[유령 Parent] Key: ${data.key}, Parent: ${data.parent}`);
                 }
             });
@@ -339,31 +306,26 @@
             return null; 
         }
 
-        // GoJS 모델을 새 데이터로 빌드하고 시점(Position/Scale)을 복원/초기화
         function buildChart(dataArray, isInitialLoad) {
             let oldPosition = null;
             let oldScale = null;
             
-            // 최초 로드가 아닐 때 (즉, 서브트리 전환 등 시점 복원이 필요한 경우) 현재 시점 저장
             if (!isInitialLoad && myDiagram) {
                 oldPosition = myDiagram.position.copy();
                 oldScale = myDiagram.scale;
             }
             
-            // GoJS 모델 업데이트 (새 데이터 바인딩)
             myDiagram.model = $(go.TreeModel, { 
                 nodeDataArray: dataArray,
                 nodeParentKeyProperty: "parent" 
             });
             
-            // 저장된 시점 복원
             if (oldPosition !== null && oldScale !== null) {
                 myDiagram.startTransaction("restore view");
                 myDiagram.position = oldPosition;
                 myDiagram.scale = oldScale;
                 myDiagram.commitTransaction("restore view");
             } else {
-                // 최초 로드 시, 기본 위치/스케일 설정
                 myDiagram.initialPosition = new go.Point(0, 0); 
                 myDiagram.scale = 1; 
             }
@@ -372,7 +334,6 @@
             showLoadingSpinner(false); 
         }
 
-        // 특정 노드를 루트로 하는 하위 조직도(서브트리)만 표시
         function showSubtree(rootKey) {
             currentSubtreeRootKey = rootKey; 
             isSubtreeView = true;
@@ -383,7 +344,6 @@
             const subtreeKeys = new Set();
             const queue = [rootKey]; 
 
-            // 너비 우선 탐색(BFS)으로 하위 노드 키를 수집
             let head = 0;
             while (head < queue.length) {
                 const currentKey = queue[head++];
@@ -396,9 +356,7 @@
             const newArray = [];
             const rootNodeData = nodeMap.get(rootKey);
             
-            // 새 모델 배열 생성
             if (rootNodeData) {
-                // 서브트리의 루트 노드는 parent를 제거하여 새로운 트리의 최상위로 설정
                 newArray.push({
                     ...rootNodeData, 
                     parent: undefined, 
@@ -413,7 +371,6 @@
             });
             
             if (newArray.length > 0) {
-                // 서브트리 전환 시에는 시점 복원 없이 초기화 레이아웃 (false)
                 buildChart(newArray, false); 
                 showAllButton.style.display = 'inline-block'; 
                 clearNodeInfo(); 
@@ -422,24 +379,16 @@
             }
         }
 
-        // 전체 조직도로 복귀
         function showAll() {
             if (allNodeData.length > 0) {
                 isSubtreeView = false;
                 currentSubtreeRootKey = null; 
-                // 전체 보기로 전환 시에는 시점 복원 없이 초기화 레이아웃 (false)
                 buildChart(allNodeData, false); 
                 showAllButton.style.display = 'none'; 
                 clearNodeInfo();
             }
         }
 
-        /**
-         * API에서 데이터를 가져와 차트를 빌드하거나 업데이트합니다.
-         * (자동 업데이트 기능은 제거되었으며, 페이지 로드 시 1회만 호출됩니다)
-         * @param {go.Diagram} diagram 현재 다이어그램 객체
-         * @param {boolean} isInitialLoad 최초 로드인지 여부 (항상 true)
-         */
         function fetchDataAndBuildChart(diagram, isInitialLoad) {
             showLoadingSpinner(true); 
             showWarningMessage(null); 
@@ -462,7 +411,6 @@
                         return;
                     }
 
-                    // 수신된 데이터를 GoJS 모델 형식에 맞게 가공
                     const newNodeDataArray = data.map(item => ({
                         key: item['본인_지갑_주소'], 
                         parent: item['상위_노드_지갑_주소'], 
@@ -476,7 +424,6 @@
                         isHighlighted: false 
                     })).filter(item => item.key); 
                     
-                    // 데이터 유효성 검사 및 경고 표시
                     const validationError = validateNodeData(newNodeDataArray);
                     if (validationError) {
                         showWarningMessage(validationError);
@@ -484,7 +431,6 @@
                     
                     allNodeData = newNodeDataArray; 
                     
-                    // 서브트리 뷰 상태였다면 서브트리를 유지하며 빌드, 아니면 전체 조직도 빌드
                     if (isSubtreeView && currentSubtreeRootKey) {
                         showSubtree(currentSubtreeRootKey); 
                     } else {
@@ -493,7 +439,6 @@
 
                 })
                 .catch(error => {
-                    // API 로드 실패 시 오류 메시지 출력
                     console.error("데이터 로드 중 오류 발생:", error);
                     document.getElementById("orgChartDiv").innerHTML = `<p style="color: red; padding: 20px;">**데이터 로드 오류:** API 주소나 Google Apps Script 설정(공개 여부)을 확인하세요. ${error.message}</p>`;
                     showLoadingSpinner(false);
@@ -501,9 +446,17 @@
                 });
         }
 
-        // 선택된 노드의 상세 정보를 HTML 박스에 표시
+        function formatNodeText(data) {
+            const name = data.유저_이름 || '이름 없음';
+            const userId = data.유저_ID;
+            let totalCountLine = "";
+            if (data.총_하위_수 && data.총_하위_수 > 0) {
+                totalCountLine = `\n(총 ${data.총_하위_수}명)`;
+            }
+            return `${name}\n${userId}${totalCountLine}`; 
+        }
+
         function showNodeDetails(data) {
-            // 더블 클릭 대신 버튼 클릭을 유도하기 위해 하위 조직만 보기 기능은 버튼으로만 제공
             const subtreeButton = data.총_하위_수 > 0 ? 
                 `<button onclick="showSubtree('${data.key}')">👉 하위 조직만 보기</button>` : 
                 '';
@@ -518,7 +471,6 @@
             `;
         }
         
-        // 검색 기능을 수행하고 결과 노드를 하이라이트 및 중앙으로 이동
         function highlightNodes() {
             if (!myDiagram || !myDiagram.model) return;
             
@@ -529,7 +481,6 @@
 
             myDiagram.startTransaction("highlight search results");
 
-            // 모든 노드를 순회하며 검색어 일치 여부 확인
             model.nodeDataArray.forEach(data => {
                 const name = (data.유저_이름 || '').toLowerCase();
                 const userId = (data.유저_ID || '').toLowerCase();
@@ -544,7 +495,6 @@
                     }
                 }
                 
-                // 하이라이트 상태 변경
                 if (data.isHighlighted !== matches) {
                     model.setDataProperty(data, "isHighlighted", matches);
                 }
@@ -556,7 +506,6 @@
             
             myDiagram.commitTransaction("highlight search results");
             
-            // 첫 번째 검색 결과 노드로 화면 이동 및 상세 정보 표시
             if (firstFoundNode) {
                 myDiagram.centerPart(firstFoundNode);
                 firstFoundNode.isSelected = true; 
@@ -572,14 +521,12 @@
         /* [4] GoJS 초기화 및 이벤트 바인딩 */
         /* ======================================================= */
 
-        // 조직도 초기화 및 템플릿 정의
         function init() {
             if (typeof go === 'undefined') {
                  document.getElementById("orgChartDiv").innerHTML = `<p style="color: red; padding: 20px;">**치명적 오류:** 조직도 엔진 로딩 실패. 인터넷 연결을 확인하세요.</p>`;
                  return; 
             }
             
-            // 모바일 환경 초기 UI 설정
             if (window.innerWidth <= 600) {
                 featureInfoDiv.style.display = 'none';
                 selectedNodeInfoDiv.style.display = 'none';
@@ -589,11 +536,11 @@
             myDiagram =
                 $(go.Diagram, "orgChartDiv", 
                 {
-                    initialAutoScale: go.Diagram.Uniform, // 초기화 시 조직도 전체 보기
-                    layout: $(go.TreeLayout,             // 트리 구조 레이아웃 사용
+                    initialAutoScale: go.Diagram.Uniform, 
+                    layout: $(go.TreeLayout,             
                                 { angle: 90, nodeSpacing: 20, layerSpacing: 70 }), 
-                    "undoManager.isEnabled": true,       // 실행 취소/다시 실행 기능 활성화
-                    "click": function(e) {               // 배경 클릭 시 상세 정보 및 기능 안내 박스 닫기
+                    "undoManager.isEnabled": true,      
+                    "click": function(e) {               
                         clearNodeInfo();
                         if (featureInfoDiv.style.display === 'block') {
                             featureInfoDiv.style.display = 'none';
@@ -602,15 +549,6 @@
                     }
                 });
             
-            // **더블 클릭 기능은 요청에 따라 제거합니다.**
-            // myDiagram.doubleClick = function(e) {
-            //     const node = e.targetObject.part;
-            //     if (node instanceof go.Node) {
-            //         showSubtree(node.data.key);
-            //     }
-            // };
-            
-            // [노드 선택 시 표시되는 테두리 디자인 템플릿]
             const nodeSelectionAdornmentTemplate =
                 $(go.Adornment, "Auto",
                     $(go.Shape, "RoundedRectangle",
@@ -618,14 +556,11 @@
                     $(go.Placeholder) 
                 );
 
-            // [노드 템플릿] 정의
             myDiagram.nodeTemplate = 
                 $(go.Node, "Auto",
                     { selectionAdornmentTemplate: nodeSelectionAdornmentTemplate },
-                    // 노드 위치 데이터 바인딩
                     new go.Binding("location", "loc", go.Point.parse).makeTwoWay(go.Point.stringify),
                     {
-                        // 노드 클릭 시 상세 정보 표시
                         click: function(e, node) {
                             showNodeDetails(node.data);
                             showNodeInfo();
@@ -633,7 +568,6 @@
                     },
                     $(go.Shape, "RoundedRectangle",
                         { name: "shapeElement", strokeWidth: 2, stroke: "#224488" },
-                        // 노드 색상 바인딩 (하이라이트, 루트, 하위 수에 따른 색상 구분)
                         new go.Binding("fill", "isHighlighted", function(h, shape) {
                             if (h) return "#A9A9A9"; 
                             
@@ -657,29 +591,17 @@
                             stroke: "white", 
                             textAlign: "center" 
                         },
-                        // 노드 내부 텍스트 구성 (이름, ID, 총 하위 수)
-                        new go.Binding("text", "", function(data) {
-                            const name = data.유저_이름 || '이름 없음';
-                            const userId = data.유저_ID;
-                            let totalCountLine = "";
-                            if (data.총_하위_수 && data.총_하위_수 > 0) {
-                                totalCountLine = `\n(총 ${data.총_하위_수}명)`;
-                            }
-                            return `${name}\n${userId}${totalCountLine}`; 
-                        })
+                        new go.Binding("text", "", formatNodeText)
                     )
                 );
 
-            // [링크 템플릿] 정의 (노드 간 연결선)
             myDiagram.linkTemplate = 
                 $(go.Link, go.Link.Orthogonal, { corner: 5 }, 
                     $(go.Shape, { strokeWidth: 1.5, stroke: "#555" }));
             
-            // API 데이터 로드 (페이지 로드 시 최초 1회)
             fetchDataAndBuildChart(myDiagram, true); 
         }
 
-        // 페이지 로드 완료 시 초기화 함수 실행
         window.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
