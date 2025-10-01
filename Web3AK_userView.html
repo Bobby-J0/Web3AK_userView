@@ -24,7 +24,7 @@
         /* [2] 노드 상세 정보 (우측 상단) */
         .node-info { 
             position: absolute; 
-            top: 95px; /* 40px 아래로 조정된 위치 유지 */
+            top: 95px; /* 위치 유지 */
             right: 40px; 
             max-width: 380px; 
             text-align: left; 
@@ -39,9 +39,8 @@
         /* [3] 기능 안내 박스 (좌측 상단) */
         .feature-info {
             position: absolute; 
-            top: 95px; /* 40px 아래로 조정된 위치 유지 */
-            /* left 값을 10px로 조정 */
-            left: 10px; 
+            top: 95px; /* 위치 유지 */
+            left: 10px; /* 위치 유지 */
             max-width: 380px; 
             text-align: left; 
             
@@ -81,9 +80,16 @@
             border: none;
             border-radius: 4px;
             cursor: pointer;
+            margin-left: 5px; /* 버튼 간격 추가 */
+        }
+        #clearSearchButton {
+            background-color: #6c757d; /* Clear 버튼 색상 구분 */
         }
         .search-container button:hover {
             background-color: #0056b3;
+        }
+        #clearSearchButton:hover {
+            background-color: #5a6268;
         }
         
     </style>
@@ -93,6 +99,7 @@
     
     <div class="search-container">
         <input type="text" id="searchInput" placeholder="이름, 연락처, 지갑주소 (부분 일치 검색)">
+        <button id="clearSearchButton">Clear</button>
         <button onclick="highlightNodes()">검색</button>
     </div>
 
@@ -103,6 +110,7 @@
             <li>**노드 상세:** 클릭 시 우측 상단에 지갑 주소 등 상세 정보 표시</li>
             <li>**기본 조작:** 조직도 확대/축소 및 이동</li>
             <li>**검색:** 이름/연락처/지갑주소로 입력 즉시 노드 자동 강조 (부분 일치)</li>
+            <li>**UX 보완:** $\text{ESC}$ 키 또는 'Clear' 버튼으로 검색 초기화 가능</li>
         </ul>
     </div>
 
@@ -151,11 +159,11 @@
                     { name: "shapeElement", strokeWidth: 2, stroke: "#224488" },
                     
                     // 실시간 강조 색상 바인딩이 최우선 적용: isHighlighted에 따라 노드 배경색 변경
-                    new go.Binding("fill", "isHighlighted", function(isHighlighted, shape) {
-                        if (isHighlighted) return "#ff0000"; // 검색 일치 시 빨간색으로 강력히 강조
+                    new go.Binding("fill", "isHighlighted", function(h, shape) {
+                        if (h) return "#A9A9A9"; // 검색 일치 시 일반 회색으로 강조 (최종 수정)
                         // isHighlighted가 false일 경우, isRoot 속성을 사용하여 원래의 색상으로 복구
                         return shape.part.data.isRoot ? "#ff9933" : "#66bb6a"; 
-                    }).ofData() // 노드 데이터 자체의 속성을 참조하도록 설정
+                    })
                 ),
                 
                 // 노드 텍스트 (유저 정보)
@@ -187,10 +195,35 @@
             // API에서 데이터 로드 및 차트 구성 시작
             fetchDataAndBuildChart(myDiagram);
             
-            // 검색창에 keyup 이벤트 바인딩 (입력 즉시 실시간 강조 함수 호출)
+            // --- [JS 로직 통합 및 추가: 검색 기능] ---
             const searchInput = document.getElementById('searchInput');
-            // 키를 누를 때마다 실시간 강조 함수 호출
+            const clearButton = document.getElementById('clearSearchButton');
+
+            // 검색창에 keyup 이벤트 바인딩 (입력 즉시 실시간 강조 함수 호출)
             searchInput.addEventListener('keyup', highlightNodes); 
+
+            // 💡 클리어 로직을 함수로 분리하여 ESC 키와 Clear 버튼이 함께 사용하도록 합니다.
+            function clearSearchAndUnhighlight() {
+                searchInput.value = ''; // 검색창 내용 클리어
+                // 검색창이 비었을 때 하이라이트를 해제하는 함수를 호출합니다.
+                // highlightNodes()는 빈 검색어로 호출될 경우 모든 노드의 강조를 해제합니다.
+                highlightNodes(); 
+            }
+
+            // 1. ESC 키 이벤트 리스너 (기존 로직 유지)
+            searchInput.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape' || event.keyCode === 27) {
+                    event.preventDefault(); 
+                    clearSearchAndUnhighlight(); // 통합 함수 호출
+                }
+            });
+
+            // 2. Clear 버튼 클릭 이벤트 리스너 (새로 추가)
+            clearButton.addEventListener('click', function() {
+                clearSearchAndUnhighlight(); // 통합 함수 호출
+                searchInput.focus(); // 사용 편의를 위해 클리어 후 검색창에 포커스를 다시 줍니다.
+            });
+            // --- [JS 로직 통합 종료] ---
         }
 
         // 구글 시트 API에서 데이터를 가져와 GoJS 모델을 구성하는 함수 (진단 보강 로직 적용)
@@ -276,9 +309,15 @@
                         matches = true;
                     }
                     // 지갑 주소의 끝 4자리가 일치하는지 확인
-                    if (!matches && searchText.length >= 4 && wallet.includes(searchText)) {
+                    // 이 로직은 주석 처리했으므로, 원하는 경우 다시 살릴 수 있습니다.
+                    /* if (!matches && searchText.length >= 4 && wallet.includes(searchText)) {
                         matches = true;
                     }
+                    */
+                   // 현재는 전체 지갑 주소에 포함되는지 확인 (더 광범위한 검색)
+                   if (!matches && wallet.includes(searchText)) {
+                        matches = true;
+                   }
                 }
                 
                 // 일치하는 경우 isHighlighted를 true로 설정하고, 아닐 경우 false로 설정
