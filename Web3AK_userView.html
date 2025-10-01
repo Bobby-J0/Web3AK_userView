@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web3AK 조직도 대시보드</title>
+    <title>Web3AK 대시보드</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons for Web/App Icons -->
@@ -30,6 +30,7 @@
         }
         
         .table-wrapper {
+            /* 기존 수평 스크롤은 유지 */
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
         }
@@ -102,50 +103,50 @@
         <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg mb-8">
             <div class="flex flex-row flex-nowrap items-end justify-start gap-4"> 
                 
-                <!-- 1. Search Field Select -->
-                <div class="flex-shrink-0 w-28 sm:w-32"> 
-                    <label for="search-field" class="block text-sm font-medium text-gray-700 mb-1 whitespace-nowrap">검색 항목 선택</label>
+                <!-- 1. Search Field Select (크기 최소화: w-16) -->
+                <div class="flex-shrink-0 w-16"> 
+                    <label for="search-field" class="block text-xs font-medium text-gray-700 mb-1">검색 항목</label>
                     <div class="relative">
+                        <!-- 높이 일치 py-2.5 -->
                         <select id="search-field" 
-                                class="w-full border border-gray-300 rounded-lg py-2.5 pr-10 pl-4 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition duration-150 ease-in-out appearance-none" 
+                                class="w-full border border-gray-300 rounded-lg py-2.5 pl-2 pr-6 text-sm focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition duration-150 ease-in-out appearance-none" 
                                 onchange="filterData()">
+                            <!-- ID를 기본값으로 설정 -->
+                            <option value="유저_ID">ID</option> 
                             <option value="유저_이름">성명</option>
-                            <option value="유저_ID">ID</option>
                             <option value="연락처">연락처</option>
-                            <option value="직속_하위_수">직대</option>
-                            <option value="총_하위_수">총 하위</option>
                         </select>
-                        <i data-lucide="chevron-down" class="w-5 h-5 text-gray-400 absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none"></i>
+                        <i data-lucide="chevron-down" class="w-3 h-3 text-gray-400 absolute right-1.5 top-1/2 transform -translate-y-1/2 pointer-events-none"></i>
                     </div>
                 </div>
                 
                 <!-- 2. Search Input -->
-                <div class="flex-grow min-w-[120px]"> 
+                <div class="flex-shrink w-full sm:max-w-[200px]"> 
                     <label for="search-input" class="block text-sm font-medium text-gray-700 mb-1 whitespace-nowrap">검색어 입력</label>
                     <div class="relative">
-                        <input type="text" id="search-input" placeholder="검색어를 입력하세요..." 
-                            class="w-full border border-gray-300 rounded-lg py-2.5 pl-10 pr-10 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out shadow-sm"
+                        <input type="text" id="search-input" placeholder="지갑주소 뒤 6자리" class="w-full border border-gray-300 rounded-lg py-2.5 pl-9 pr-9 text-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out shadow-sm"
                             oninput="filterData()">
-                        <i data-lucide="search" class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2"></i>
+                        <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2"></i>
                         
                         <div id="clear-search-button" class="clear-button hidden" onmousedown="clearSearch(event)">
-                            <i data-lucide="x-circle" class="w-5 h-5"></i>
+                            <i data-lucide="x-circle" class="w-4 h-4"></i>
                         </div>
                     </div>
                 </div>
 
                 <!-- 3. Refresh Button -->
                 <div class="flex-shrink-0"> 
-                    <button id="refresh-button" class="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition duration-200 ease-in-out flex items-center disabled:opacity-50 whitespace-nowrap" onclick="fetchData(true)">
-                        <i data-lucide="refresh-cw" class="w-5 h-5 mr-2"></i>
+                    <button id="refresh-button" class="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition duration-200 ease-in-out flex items-center disabled:opacity-50 whitespace-nowrap text-sm" onclick="fetchData(true)">
+                        <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i>
                         새로고침
                     </button>
                 </div>
 
-                <!-- 4. View Toggle -->
-                <div class="flex-shrink-0 flex items-center space-x-2 pb-1"> 
+                <!-- 4. View Toggle (순서 및 레이블 변경) -->
+                <div class="flex-shrink-0 flex items-center space-x-2"> 
+                    <!-- 체크박스가 체크되면 isTableView=true (지표 보기)로 전환됨 -->
                     <input type="checkbox" id="view-toggle" class="h-5 w-5 text-indigo-600 rounded-full focus:ring-indigo-500 transition duration-150 ease-in-out" onchange="toggleView()">
-                    <label for="view-toggle" class="text-sm font-medium text-gray-700 select-none whitespace-nowrap">조직도 보기</label>
+                    <label for="view-toggle" class="text-sm font-medium text-gray-700 select-none whitespace-nowrap">지표 보기</label>
                 </div>
 
             </div>
@@ -158,10 +159,11 @@
         </div>
 
         <div id="data-container" class="mt-6 hidden">
-            <!-- Table View -->
-            <div id="table-view" class="table-wrapper bg-white rounded-xl shadow-lg p-4">
+            <!-- Table View (지표 보기) - 기본적으로 숨겨짐 -->
+            <div id="table-view" class="table-wrapper bg-white rounded-xl shadow-lg p-4 overflow-y-auto max-h-[calc(100vh-280px)] hidden">
                 <table id="data-table" class="min-w-full divide-y divide-gray-200"> 
-                    <thead class="bg-gray-50">
+                    <!-- 테이블 내용 스크롤 시 헤더 고정 -->
+                    <thead class="bg-gray-50 sticky top-0 z-10 shadow-sm">
                         <tr id="table-header">
                             <!-- Headers will be inserted here -->
                         </tr>
@@ -172,8 +174,8 @@
                 </table>
             </div>
 
-            <!-- Tree View (D3.js Visualization) -->
-            <div id="tree-view" class="bg-white rounded-xl shadow-lg p-6 min-h-[500px] hidden">
+            <!-- Tree View (조직도/마인드맵) - 기본적으로 보여짐 -->
+            <div id="tree-view" class="bg-white rounded-xl shadow-lg p-6 min-h-[500px]">
                 <!-- D3.js가 SVG를 렌더링할 컨테이너 (높이를 확보해야 D3 시각화가 제대로 보입니다) -->
                 <div id="tree-container" class="w-full h-[900px]">
                 </div>
@@ -182,19 +184,20 @@
         
     </div>
 
-    <!-- 상세 정보 박스 (우측 하단 고정 오버레이로 위치 수정) -->
+    <!-- 상세 정보 박스 (우측 하단 고정 오버레이) -->
     <div id="detail-box" class="fixed right-4 bottom-4 w-full max-w-sm bg-white rounded-xl shadow-2xl border-t-4 border-indigo-500 transition-transform duration-300 transform translate-y-full opacity-0 z-40 hidden">
         <!-- Content will be injected here -->
     </div>
 
 
     <script>
-        // Apps Script 웹 앱 URL (★★★★★ 고객님이 제공한 최종 URL로 업데이트됨 ★★★★★)
+        // Apps Script 웹 앱 URL
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxutUIMVFENC6qT4kLeTUgkZxw31Mcu8mD_pHw5mMDj3OPixX-WycckTq3jl2wsepzjqw/exec";
         
         let rawData = [];
         let filteredData = [];
-        let isTableView = true;
+        // 기본 뷰가 트리 뷰이므로 false로 초기화 (true: Table View)
+        let isTableView = false; 
         
         // 정렬 상태 변수
         let currentSortKey = ''; 
@@ -241,24 +244,24 @@
                     <!-- 제목: 성명 (ID) -->
                     <h3 class="text-xl font-extrabold text-indigo-700 mb-4">${data['유저_이름']} (${data['유저_ID']})</h3>
 
-                    <!-- 연락처 -->
-                    <p class="text-sm text-gray-600 mb-4">
-                        <span class="font-semibold text-gray-800">연락처:</span> ${data['연락처'] || '정보 없음'}
-                    </p>
-
                     <!-- 지갑 주소 섹션 -->
                     <div class="space-y-3">
-                        <!-- 본인 지갑 주소 -->
+                        <!-- 1. 본인 지갑 주소 -->
                         <div class="text-sm text-gray-600 break-words">
                             <span class="font-semibold text-gray-800 block sm:inline">본인 지갑주소:</span> 
                             <span class="text-indigo-500 block">${data['본인_지갑_주소']}</span>
                         </div>
                         
-                        <!-- 상위 지갑 주소 -->
+                        <!-- 2. 상위 지갑 주소 -->
                         <div class="text-sm text-gray-600 break-words">
                             <span class="font-semibold text-gray-800 block sm:inline">상위 지갑주소:</span> 
                             <span class="text-indigo-500 block">${data['상위_노드_지갑_주소'] || '없음 (최상위 노드)'}</span>
                         </div>
+                        
+                        <!-- 3. 연락처 (위치 변경) -->
+                        <p class="text-sm text-gray-600">
+                            <span class="font-semibold text-gray-800">연락처:</span> ${data['연락처'] || '정보 없음'}
+                        </p>
                     </div>
                     
                     <div class="mt-6 pt-4 border-t border-gray-100 text-xs text-gray-400">
@@ -290,7 +293,6 @@
         
         /**
          * 테이블 행 클릭 이벤트 핸들러
-         * 이벤트 버블링을 막아 상세 정보 박스가 열리자마자 닫히는 것을 방지 (이전 수정 사항 유지)
          */
         function handleTableRowClick(event, userId) {
             event.stopPropagation(); // document 클릭 이벤트로의 전파를 막습니다.
@@ -372,6 +374,21 @@
         }
 
         /**
+         * 현재 검색 조건에 해당 데이터가 일치하는지 확인 (하이라이팅용)
+         */
+        function isMatch(user) {
+            const searchField = document.getElementById('search-field').value;
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            
+            if (!searchTerm) return false;
+
+            // 검색 필드가 '유저_ID', '유저_이름', '연락처' 중 하나를 값 포함 여부(includes)로 확인
+            const valueToSearch = String(user[searchField] || '');
+            
+            return valueToSearch.toLowerCase().includes(searchTerm);
+        }
+
+        /**
          * Google Apps Script API에서 데이터를 가져옵니다.
          */
         async function fetchData(forceRefresh = false) {
@@ -400,9 +417,11 @@
                 currentSortKey = '';
                 sortDirection = 'none';
                 
-                filterData(); 
+                // dataContainer를 먼저 보이게 하여 D3가 정확한 크기를 갖도록 함
+                dataContainer.classList.remove('hidden'); 
+
+                filterData(); // 데이터 로드 후 필터링/플레이스홀더 업데이트 및 뷰 렌더링을 위해 호출
                 
-                dataContainer.classList.remove('hidden');
                 if(forceRefresh) showTransientMessage('데이터를 성공적으로 업데이트했습니다.', 'text-green-600 bg-green-50');
 
             } catch (error) {
@@ -422,6 +441,13 @@
         function filterData() {
             const searchField = document.getElementById('search-field').value; 
             const searchTerm = searchInput.value.toLowerCase().trim();
+
+            // 1. 플레이스홀더 업데이트 로직
+            if (searchField === '유저_ID') {
+                searchInput.placeholder = '지갑주소 뒤 6자리';
+            } else {
+                searchInput.placeholder = '검색어를 입력하세요...';
+            }
             
             if (searchTerm) {
                 clearSearchButton.classList.remove('hidden');
@@ -429,22 +455,19 @@
                 clearSearchButton.classList.add('hidden');
             }
 
-            // 1. 검색 필터 적용
+            // 2. 검색 필터 적용
             let tempFilteredData = [];
             if (!searchTerm) {
                 tempFilteredData = [...rawData];
             } else {
                 tempFilteredData = rawData.filter(user => {
+                    // 선택된 필드에 따라 검색
                     const valueToSearch = String(user[searchField]);
-                    
-                    if (['직속_하위_수', '총_하위_수'].includes(searchField)) {
-                        return valueToSearch === searchTerm;
-                    }
                     return valueToSearch.toLowerCase().includes(searchTerm);
                 });
             }
             
-            // 2. 현재 정렬 상태에 따라 필터링된 데이터를 정렬
+            // 3. 현재 정렬 상태에 따라 필터링된 데이터를 정렬
             filteredData = tempFilteredData; 
 
             if (currentSortKey !== '' && sortDirection !== 'none') {
@@ -455,16 +478,17 @@
                     if (isNumericSort) {
                         return compareNumber(a[keyToSort], b[keyToSort], sortDirection);
                     } else {
-                        return compareAlphaNumeric(String(a[keyToSort] || ''), String(b[keyToSort] || ''), sortDirection);
+                        return compareAlphaNumeric(String(a[keyToSort] || ''), String(b[keyToSort] || ''), direction);
                     }
                 });
             }
 
-            // 뷰 업데이트
+            // 4. 뷰 업데이트
             if (isTableView) {
-                renderTable(filteredData);
+                renderTable(filteredData); 
             } else {
-                renderTree(filteredData);
+                // 조직도 뷰는 전체 데이터(rawData)에 하이라이팅만 적용합니다.
+                renderTree(rawData); 
             }
         }
         
@@ -486,13 +510,15 @@
                 currentSortKey = key;
                 sortDirection = 'asc';
             }
-            filterData();
+            // 정렬 후 필터링 함수 호출 (필터링된 데이터를 정렬)
+            filterData(); 
         }
 
         /**
-         * 테이블 뷰를 렌더링합니다.
+         * 테이블 뷰를 렌더링합니다. (검색 일치 시 행 배경 회색 하이라이팅 적용)
          */
         function renderTable(data) {
+            // 정렬 가능한 헤더 (직대/총 하위는 유지)
             const sortableKeys = ['유저_ID', '유저_이름', '직속_하위_수', '총_하위_수'];
             const displayHeaders = [
                 { key: '유저_ID', label: 'ID' }, 
@@ -506,9 +532,17 @@
                 tableBody.innerHTML = `<tr><td colspan="${displayHeaders.length}" class="text-center py-4 text-gray-500">
                     데이터가 없거나 검색 결과가 없습니다.
                 </td></tr>`;
+                // 검색어 하이라이팅이 적용되지 않은 상태로 간주
+                const currentSearchTerm = searchInput.value.toLowerCase().trim();
+                if(currentSearchTerm) {
+                   tableBody.innerHTML = `<tr><td colspan="${displayHeaders.length}" class="text-center py-4 text-gray-500 bg-red-50 rounded-lg">
+                       검색어 "${currentSearchTerm}"와 일치하는 결과가 없습니다.
+                   </td></tr>`;
+                }
                 return;
             }
 
+            // 헤더 렌더링 (이전과 동일)
             tableHeader.innerHTML = displayHeaders.map(item => {
                 const isSortable = sortableKeys.includes(item.key);
                 const isCurrentSort = currentSortKey === item.key;
@@ -536,12 +570,16 @@
                 `;
             }).join('');
 
+            // 바디 렌더링 (하이라이팅 적용)
             tableBody.innerHTML = data.map(user => {
-                // 테이블 행 클릭 이벤트 핸들러 추가: handleTableRowClick 함수를 사용하여 event와 ID를 전달
                 const rowClick = `onclick="handleTableRowClick(event, '${user['유저_ID']}')"`;
                 
+                // 검색 일치 시 bg-gray-200 적용
+                const isHighlighted = isMatch(user); 
+                const rowClasses = isHighlighted ? 'bg-gray-200' : 'bg-white hover:bg-indigo-50';
+
                 return `
-                    <tr class="hover:bg-indigo-50 transition duration-150 ease-in-out" ${rowClick}>
+                    <tr class="${rowClasses} transition duration-150 ease-in-out" ${rowClick}>
                         ${displayHeaders.map(item => { 
                             const displayValue = user[item.key];
                             return `
@@ -558,14 +596,14 @@
         }
         
         /**
-         * D3.js를 사용하여 인터랙티브 조직도(트리) 뷰를 렌더링합니다.
+         * D3.js를 사용하여 인터랙티브 조직도(트리) 뷰를 렌더링합니다. (검색 일치 시 노드 배경 회색 하이라이팅 적용)
          */
         function renderTree(data) {
             treeContainer.innerHTML = ''; // 컨테이너 초기화
             closeDetailBox(); // 트리 렌더링 시 상세 박스 닫기
 
             if (data.length === 0) {
-                treeContainer.innerHTML = '<p class="text-center py-10 text-gray-500">데이터가 없거나 검색 결과가 없습니다.</p>';
+                treeContainer.innerHTML = '<p class="text-center py-10 text-gray-500">데이터가 없거나 유효한 루트를 찾을 수 없습니다.</p>';
                 return;
             }
 
@@ -632,7 +670,7 @@
             // SVG 컨테이너 크기 설정 
             const width = treeContainer.clientWidth;
             const height = treeContainer.clientHeight;
-            // 캔버스 경계와 조직도 사이의 마진 (1px 유지)
+            // 캔버스 경계와 조직도 사이의 마진
             const margin = { top: 1, right: 1, bottom: 1, left: 1 }; 
             
             // 1. SVG 컨테이너 생성
@@ -642,31 +680,43 @@
                 .attr("viewBox", `0 0 ${width} ${height}`)
                 .attr("preserveAspectRatio", "xMidYMid meet"); 
 
-            // 줌 및 드래그 동작 정의
+            // D3 줌 객체 정의 (zoomBehavior)
             const zoomBehavior = d3.zoom()
                 .scaleExtent([0.1, 4]) 
                 .on("zoom", (event) => {
                     g.attr("transform", event.transform);
                 });
 
-            const g = svg.call(zoomBehavior)
-                .on("dblclick.zoom", null) // 더블 클릭 줌 기본 동작 방지
-                .append("g")
-                .attr("transform", `translate(${margin.left}, ${margin.top})`);
+            // 2. SVG에 줌 이벤트 핸들러를 연결하고, 더블클릭 방지
+            const svgGroup = svg.call(zoomBehavior)
+                .on("dblclick.zoom", null); 
             
-            // 초기 위치 조정: 루트 노드를 중앙 상단에 배치
-            g.attr("transform", `translate(${width / 2}, ${margin.top})`);
+            // 3. 모든 요소가 담길 그룹 <g> 생성
+            const g = svgGroup.append("g");
 
-            // 2. 트리 레이아웃 정의 (세로 구조)
+            // 초기 위치 조정
+            const initialTranslateX = width / 2;
+            // 초기 Y 위치를 약간 아래로 조정하여 루트 노드가 상단에 걸리지 않도록 함 (예: 100px)
+            const initialTranslateY = 100; 
+
+            // 4. g 그룹을 초기 위치로 이동
+            g.attr("transform", `translate(${initialTranslateX}, ${initialTranslateY})`);
+
+            // 5. D3 줌 상태를 수동으로 설정한 초기 위치와 동기화 (***튀는 현상 방지 핵심***)
+            const initialTransform = d3.zoomIdentity.translate(initialTranslateX, initialTranslateY);
+            svgGroup.call(zoomBehavior.transform, initialTransform);
+
+
+            // 6. 트리 레이아웃 정의 (세로 구조)
             const treeLayout = d3.tree()
                 // 노드 크기 정의: 수평 간격을 160px (노드 폭 150px + 여백 10px)로 설정
                 .nodeSize([nodeWidth + 10, nodeSeparation]); 
 
-            // 3. 계층 구조 생성 및 레이아웃 적용
+            // 7. 계층 구조 생성 및 레이아웃 적용
             const root = d3.hierarchy(rootData);
             const treeData = treeLayout(root);
 
-            // 4. Links (연결선)
+            // 8. Links (연결선)
             g.selectAll(".link")
                 .data(treeData.links())
                 .enter().append("path")
@@ -678,7 +728,7 @@
                     .x(d => d.x)
                     .y(d => d.y));
 
-            // 5. Nodes (사용자 카드)
+            // 9. Nodes (사용자 카드)
             const node = g.selectAll(".node")
                 .data(treeData.descendants())
                 .enter().append("g")
@@ -691,7 +741,7 @@
                 }) 
                 .attr("cursor", "pointer");
 
-            // 6. 카드 배경 (직사각형)
+            // 10. 카드 배경 (직사각형) - 하이라이팅 적용
             node.append("rect")
                 .attr("width", nodeWidth)
                 .attr("height", nodeHeight)
@@ -699,12 +749,13 @@
                 .attr("y", -nodeHeight / 2) // Y 중앙
                 .attr("rx", 8) // 둥근 모서리
                 .attr("ry", 8)
-                .attr("fill", "#ffffff")
+                // 하이라이팅 로직: isMatch(d.data)가 true면 회색(#E5E7EB), 아니면 흰색(#ffffff)
+                .attr("fill", d => isMatch(d.data) ? "#E5E7EB" : "#ffffff") 
                 .attr("stroke", d => d.data['유저_ID'] === 'ROOT' ? "#EAB308" : "#4F46E5") // 루트 강조
                 .attr("stroke-width", 3)
-                .attr("filter", "url(#shadow)"); // 그림자 필터 적용 (SVG 필터는 JS 아래에 정의)
+                .attr("filter", "url(#shadow)"); // 그림자 필터 적용
                 
-            // 7. 텍스트 콘텐츠 (정보) - 3줄 구성: 성명 / ID / 직대-총하위
+            // 11. 텍스트 콘텐츠 (정보) - 3줄 구성: 성명 / ID / 직대-총하위
             
             // A. 성명 (Line 1): -15
             node.append("text")
@@ -732,7 +783,7 @@
                     : `총 루트 하위: ${d.data['직속_하위_수']}`)
                 .attr("fill", "#4B5563"); 
             
-            // 8. SVG 필터 (카드 그림자 효과) 정의
+            // 12. SVG 필터 (카드 그림자 효과) 정의
             const defs = svg.append("defs");
 
             defs.append("filter")
@@ -753,17 +804,21 @@
          */
         function toggleView() {
             const toggle = document.getElementById('view-toggle');
-            isTableView = !toggle.checked; 
+            // 새 로직: 체크박스가 체크되면 isTableView가 true (지표 보기)
+            isTableView = toggle.checked; 
             
             if (isTableView) {
+                // 체크됨: 지표 보기 (Table View) 활성화
                 tableView.classList.remove('hidden');
                 treeView.classList.add('hidden');
-                renderTable(filteredData);
-                closeDetailBox(); // 뷰 전환 시 상세 박스 닫기
+                renderTable(filteredData); 
+                closeDetailBox(); 
             } else {
+                // 체크 안됨: 조직도 보기 (Tree View) 활성화
                 tableView.classList.add('hidden');
                 treeView.classList.remove('hidden');
-                renderTree(filteredData); 
+                // 조직도 렌더링 시에는 D3 상태를 재동기화해야 합니다.
+                renderTree(rawData); 
             }
         }
         
