@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Web3AK 실시간 유저</title>
+    <title>Web3AK 조직도</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://unpkg.com/gojs@2.3.11/release/go.js"></script>
     <style>
@@ -29,11 +29,16 @@
             max-width: 380px; 
             text-align: left; 
             
-            padding: 15px; 
+            padding: 15px; /* 좌우 여백 확보 */
             border: 1px solid #ddd; 
             background-color: rgba(255, 255, 255, 0.95); 
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             z-index: 100; 
+        }
+        /* 상세 정보 내부 텍스트 최적화: 긴 지갑 주소 자동 줄바꿈 */
+        .node-info p {
+            word-wrap: break-word; /* 긴 텍스트 줄바꿈 */
+            word-break: break-all;
         }
         
         /* [3] 기능 안내 박스 (좌측 상단 - 데스크톱 기본) */
@@ -51,6 +56,12 @@
             z-index: 100;
             
             font-size: 13px;
+            
+            /* 토글을 위한 기본 숨김 설정 */
+            display: none;
+        }
+        .feature-info.active {
+            display: block; /* 활성화 시 노출 */
         }
         .feature-info ul {
             list-style-type: none;
@@ -75,77 +86,92 @@
         }
         .search-container button {
             padding: 8px 15px;
-            background-color: #007bff;
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
             margin-left: 5px; 
         }
+        #featureToggleButton {
+            background-color: #f8f9fa; /* 기능 탭: 흰색 (모바일에서만 버튼화) */
+            color: #212529; 
+            border: 1px solid #ccc;
+        }
         #clearSearchButton {
-            background-color: #6c757d; 
+            background-color: #6c757d; /* 클리어 탭: 짙은 회색 */
         }
-        .search-container button:hover {
-            background-color: #0056b3;
+        #searchButton {
+            background-color: #007bff; /* 검색 탭: 기존 컬러 유지 */
         }
-        #clearSearchButton:hover {
-            background-color: #5a6268;
-        }
+        
+        /* 버튼 hover 효과 (데스크톱 용) */
+        #searchButton:hover { background-color: #0056b3; }
+        #clearSearchButton:hover { background-color: #5a6268; }
+        #featureToggleButton:hover { background-color: #e2e6ea; }
 
         /* [5] 모바일 최적화 (@media 쿼리 - Max-width 600px 이하 적용) */
         @media (max-width: 600px) {
+            h2 { font-size: 1.2em; margin-bottom: 5px;}
+            
             /* 조직도 뷰 높이 조정 */
             #orgChartDiv {
-                height: 70vh; /* 모바일에서 기능 박스를 위한 공간 확보 */
+                height: 75vh;
             }
 
-            /* 노드 상세 정보 (selectedNodeInfo) 박스 위치 및 크기 조정 */
-            .node-info { 
-                position: static; /* 고정 위치 해제 */
-                top: auto; 
-                right: auto;
-                max-width: 100%; 
-                padding: 10px;
-                box-shadow: none; /* 그림자 제거로 간결화 */
-                border-left: none;
-                border-right: none;
-                margin-top: 5px;
-            }
-
-            /* 기능 안내 (feature-info) 박스 위치 및 크기 조정 */
-            .feature-info {
-                position: static; /* 고정 위치 해제 */
-                top: auto; 
-                left: auto;
-                max-width: 100%; 
-                padding: 10px;
-                box-shadow: none; /* 그림자 제거로 간결화 */
-                border-left: none;
-                border-right: none;
-                font-size: 12px;
-            }
-
-            /* 검색 컨테이너의 마진 조정 */
+            /* 검색 컨테이너: 검색창은 전체 너비, 버튼 3개는 다음 줄에 배치 */
             .search-container {
-                margin-top: 10px;
-                margin-bottom: 5px;
-                padding: 0 10px; /* 좌우 패딩 추가 */
+                margin: 10px 10px 5px 10px;
+                padding: 0;
+                display: flex;
+                flex-direction: column; 
             }
-            
-            /* 검색창 너비 조정 및 버튼 너비 조정 */
             #searchInput {
-                width: 100%; /* 모바일에서 전체 너비 사용 */
-                margin-bottom: 5px; /* 버튼과의 간격 확보 */
+                width: 100%;
+                margin-bottom: 5px; 
+                box-sizing: border-box;
+            }
+            /* 버튼 3개 컨테이너 */
+            .button-row {
+                display: flex;
+                justify-content: space-between;
+                width: 100%;
+                margin-bottom: 5px;
             }
             .search-container button {
-                width: 48%; /* 검색과 클리어 버튼이 반반씩 차지하도록 */
-                display: inline-block;
-                box-sizing: border-box; /* 패딩, 보더가 너비에 포함되도록 */
-                margin-left: 0;
+                flex-grow: 1; 
+                width: 31%; 
+                margin-left: 0 !important;
+                margin-right: 2%; 
             }
-            #clearSearchButton {
-                margin-left: 0;
-                margin-right: 4%; /* 검색 버튼과의 간격 확보 */
+            .search-container button:last-child {
+                margin-right: 0;
+            }
+            
+            /* 노드 상세 정보 (node-info): 모바일 상단으로 고정 */
+            .node-info { 
+                position: static; 
+                max-width: 100%; 
+                padding: 10px;
+                box-shadow: none; 
+                border-left: none;
+                border-right: none;
+                margin: 5px 0 0 0;
+            }
+
+            /* 기능 안내 (feature-info): 모바일 뷰 위에 겹치도록 고정 */
+            .feature-info {
+                position: fixed; 
+                top: 50px; 
+                left: 5%; 
+                width: 90%; 
+                max-width: 90%; 
+                height: auto;
+                max-height: 80vh;
+                overflow-y: auto; 
+                z-index: 200; 
+                padding: 15px;
+                border-radius: 8px;
+                box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
             }
         }
     </style>
@@ -155,11 +181,14 @@
     
     <div class="search-container">
         <input type="text" id="searchInput" placeholder="이름, 연락처, 지갑주소 (부분 일치 검색)">
-        <button id="clearSearchButton">Clear</button>
-        <button onclick="highlightNodes()">검색</button>
+        <div class="button-row">
+            <button id="featureToggleButton">기능</button>
+            <button id="clearSearchButton">Clear</button>
+            <button id="searchButton" onclick="highlightNodes()">검색</button>
+        </div>
     </div>
 
-    <div class="feature-info">
+    <div class="feature-info" id="featureInfo">
         <h3>🚀 웹 앱 핵심 기능</h3>
         <ul>
             <li>**데이터 연동:** Google Sheets 데이터 실시간 자동 반영</li>
@@ -187,37 +216,34 @@
             myDiagram =
                 $(go.Diagram, "orgChartDiv", 
                 {
-                    initialAutoScale: go.Diagram.Uniform, // 초기 로드 시 모든 노드가 보이도록 자동 스케일 조정
+                    // initialAutoScale: go.Diagram.Uniform, // 🚨 제거: 전체 노드를 작게 보여주지 않도록 변경
                     layout: $(go.TreeLayout, // 조직도(Tree) 레이아웃 설정
                                 { angle: 90, nodeSpacing: 10, layerSpacing: 50 }),
-                    "undoManager.isEnabled": true, // 실행 취소 기능 활성화
+                    "undoManager.isEnabled": true, 
                     "click": function(e) {
-                        // 빈 공간 클릭 시 상세 정보 초기화
+                        // 빈 공간 클릭 시 상세 정보 초기화 및 기능 안내 닫기
                         document.getElementById("selectedNodeInfo").innerHTML = "노드를 선택하면 상세 정보가 표시됩니다.";
+                        closeFeatureInfo(e);
                     }
                 });
 
         // 노드 템플릿 정의: 각 유저 박스의 디자인과 동작 설정
         myDiagram.nodeTemplate = 
             $(go.Node, "Auto",
-                // 노드가 선택되었을 때 표시되는 테두리 (기본 파란색)
                 { selectionAdornmentTemplate: nodeSelectionAdornmentTemplate },
-                // 노드 위치 바인딩
                 new go.Binding("location", "loc", go.Point.parse).makeTwoWay(go.Point.stringify),
                 {
-                    // 노드 클릭 이벤트
                     click: function(e, node) {
                         showNodeDetails(node.data);
+                        closeFeatureInfo(e); // 노드 클릭 시 기능 안내 닫기
                     }
                 },
                 // 노드 배경 도형 (RoundedRectangle)
                 $(go.Shape, "RoundedRectangle",
                     { name: "shapeElement", strokeWidth: 2, stroke: "#224488" },
                     
-                    // 실시간 강조 색상 바인딩이 최우선 적용: isHighlighted에 따라 노드 배경색 변경
                     new go.Binding("fill", "isHighlighted", function(h, shape) {
-                        if (h) return "#A9A9A9"; // 검색 일치 시 일반 회색으로 강조 (최종 수정)
-                        // isHighlighted가 false일 경우, isRoot 속성을 사용하여 원래의 색상으로 복구
+                        if (h) return "#A9A9A9"; 
                         return shape.part.data.isRoot ? "#ff9933" : "#66bb6a"; 
                     })
                 ),
@@ -230,7 +256,6 @@
                         stroke: "white", 
                         textAlign: "center" 
                     },
-                    // 데이터 바인딩: 표시할 텍스트 구성
                     new go.Binding("text", "", function(data) {
                         const name = data.유저_이름 || '이름 없음';
                         const userId = data.유저_ID;
@@ -243,7 +268,7 @@
                 )
             );
 
-            // 링크 템플릿 정의: 노드들을 잇는 선의 디자인 설정
+            // 링크 템플릿 정의
             myDiagram.linkTemplate = 
                 $(go.Link, go.Link.Orthogonal, { corner: 5 },
                     $(go.Shape, { strokeWidth: 1.5, stroke: "#555" }));
@@ -251,58 +276,88 @@
             // API에서 데이터 로드 및 차트 구성 시작
             fetchDataAndBuildChart(myDiagram);
             
-            // --- [JS 로직 통합 및 추가: 검색 기능] ---
+            // --- [JS 로직: 검색 및 클리어] ---
             const searchInput = document.getElementById('searchInput');
             const clearButton = document.getElementById('clearSearchButton');
+            const featureToggleButton = document.getElementById('featureToggleButton');
+            const featureInfoDiv = document.getElementById('featureInfo');
 
-            // 검색창에 keyup 이벤트 바인딩 (입력 즉시 실시간 강조 함수 호출)
+            // 검색창에 keyup 이벤트 바인딩
             searchInput.addEventListener('keyup', highlightNodes); 
 
-            // 💡 클리어 로직을 함수로 분리하여 ESC 키와 Clear 버튼이 함께 사용하도록 합니다.
+            // 클리어 로직 함수
             function clearSearchAndUnhighlight() {
-                searchInput.value = ''; // 검색창 내용 클리어
-                // highlightNodes()는 빈 검색어로 호출될 경우 모든 노드의 강조를 해제합니다.
+                searchInput.value = '';
                 highlightNodes(); 
             }
 
-            // 1. ESC 키 이벤트 리스너 (기존 로직 유지)
+            // ESC 키 이벤트 리스너
             searchInput.addEventListener('keydown', function(event) {
                 if (event.key === 'Escape' || event.keyCode === 27) {
                     event.preventDefault(); 
-                    clearSearchAndUnhighlight(); // 통합 함수 호출
+                    clearSearchAndUnhighlight();
+                    closeFeatureInfo(); 
                 }
             });
 
-            // 2. Clear 버튼 클릭 이벤트 리스너 (새로 추가)
+            // Clear 버튼 클릭 이벤트 리스너
             clearButton.addEventListener('click', function() {
-                clearSearchAndUnhighlight(); // 통합 함수 호출
-                searchInput.focus(); // 사용 편의를 위해 클리어 후 검색창에 포커스를 다시 줍니다.
+                clearSearchAndUnhighlight();
+                searchInput.focus();
+                closeFeatureInfo(); 
+            });
+
+            // --- [JS 로직: 기능 안내 토글] ---
+
+            // 기능 안내 팝업을 닫는 함수
+            function closeFeatureInfo() {
+                featureInfoDiv.classList.remove('active');
+            }
+
+            // 기능 안내 팝업을 열거나 닫는 함수
+            function toggleFeatureInfo() {
+                featureInfoDiv.classList.toggle('active');
+            }
+
+            // '기능' 버튼 클릭 이벤트 리스너
+            featureToggleButton.addEventListener('click', toggleFeatureInfo);
+
+            // 팝업 외부 클릭 시 닫히는 로직 (body 클릭 감지)
+            document.body.addEventListener('click', function(event) {
+                const target = event.target;
+                
+                // 클릭된 요소가 featureInfoDiv 자신이거나 그 자식이거나, featureToggleButton인 경우 무시
+                if (featureInfoDiv.contains(target) || target === featureToggleButton) {
+                    return;
+                }
+                
+                // featureInfoDiv가 열려있는 경우 닫기
+                if (featureInfoDiv.classList.contains('active')) {
+                    closeFeatureInfo();
+                }
             });
             // --- [JS 로직 통합 종료] ---
         }
 
-        // 구글 시트 API에서 데이터를 가져와 GoJS 모델을 구성하는 함수 (진단 보강 로직 적용)
+        // 구글 시트 API에서 데이터를 가져와 GoJS 모델을 구성하고 초기 뷰를 설정하는 함수
         function fetchDataAndBuildChart(diagram) {
             fetch(API_URL)
                 .then(response => {
                     if (!response.ok) {
-                        // HTTP 응답 코드가 200 OK가 아닐 경우
                         throw new Error("API 호출 실패: " + response.statusText);
                     }
                     return response.json();
                 })
                 .then(data => {
-                    if (!Array.isArray(data)) {
-                        throw new Error("API 응답 형식이 올바르지 않습니다. (배열이 아님)");
-                    }
-                    
-                    // **✅ 진단 보강: 데이터 배열이 비어있는 경우 경고 출력**
-                    if (data.length === 0) {
-                        document.getElementById("orgChartDiv").innerHTML = `<p style="color: orange; padding: 20px;">**경고:** API 통신은 성공했으나, Google Sheets에 노드를 생성할 **데이터 행이 하나도 없습니다.**</p>`;
+                    if (!Array.isArray(data) || data.length === 0) {
+                        const message = data.length === 0 
+                            ? `**경고:** API 통신은 성공했으나, Google Sheets에 노드를 생성할 **데이터 행이 하나도 없습니다.**`
+                            : `API 응답 형식이 올바르지 않습니다. (배열이 아님)`;
+                        document.getElementById("orgChartDiv").innerHTML = `<p style="color: orange; padding: 20px;">${message}</p>`;
                         return;
                     }
 
-                    // JSON 데이터를 GoJS 모델 형식으로 변환 (isHighlighted 기본값 추가)
+                    // JSON 데이터를 GoJS 모델 형식으로 변환
                     const nodeDataArray = data.map(item => ({
                         key: item['본인_지갑_주소'], 
                         parent: item['상위_노드_지갑_주소'], 
@@ -313,14 +368,43 @@
                         직속_하위_수: item['직속_하위_수'],
                         총_하위_수: item['총_하위_수'],
                         isRoot: item['상위_노드_지갑_주소'] === "", 
-                        isHighlighted: false // 실시간 검색 강조를 위한 속성
+                        isHighlighted: false 
                     })).filter(item => item.key); 
 
-                    // 다이어그램 모델 업데이트
+                    // 1. 다이어그램 모델 업데이트 (모델 변경은 트랜잭션 외부에서 수행)
                     diagram.model = $(go.TreeModel, { nodeDataArray: nodeDataArray });
+                    
+                    // 2. 🚨 초기 뷰 확대 로직 시작
+                    diagram.requestUpdate(function() {
+                        if (diagram.nodes.count === 0) return;
+
+                        diagram.startTransaction("Initial Zoom");
+
+                        const rootNode = diagram.nodes.iterator.value;
+                        if (!rootNode) return;
+
+                        // 루트 노드를 포함한 직속 자식 노드들의 집합 (Adjacency Set)
+                        const initialGroup = new go.Set();
+                        initialGroup.add(rootNode);
+                        rootNode.findTreeChildrenNodes().each(child => initialGroup.add(child));
+                        
+                        if (initialGroup.count > 0) {
+                            // 이 노드들의 집합에 대한 경계 (Bounds) 계산
+                            const bounds = diagram.computeBounds(initialGroup);
+                            
+                            // 계산된 경계를 뷰포트로 설정 (적절한 여백을 위해 10% 정도 확대/축소 비율 적용)
+                            // setViewportBounds는 해당 영역을 뷰어에 꽉 채우도록 자동으로 스케일링 함.
+                            diagram.setViewportBounds(bounds, diagram.scale * 1.1); // 10% 여백
+                        } else {
+                            // 자식 노드가 없는 경우 루트 노드만 중앙에 배치
+                            diagram.centerPart(rootNode);
+                        }
+                        
+                        diagram.commitTransaction("Initial Zoom");
+                    });
+                    // 🚨 초기 뷰 확대 로직 종료
                 })
                 .catch(error => {
-                    // **❌ 통신 실패 또는 응답 데이터 구조 오류 시 빨간색 오류 메시지 출력**
                     console.error("데이터 로드 중 오류 발생:", error);
                     document.getElementById("orgChartDiv").innerHTML = `<p style="color: red; padding: 20px;">**데이터 로드 오류:** API URL(${API_URL})을 확인하거나, Apps Script가 "모든 사용자"에게 공개되었는지 확인하세요. ${error.message}</p>`;
                 });
@@ -338,7 +422,7 @@
             `;
         }
         
-        // 실시간 검색 강조 함수 (입력 즉시 노드 배경색 변경)
+        // 실시간 검색 강조 함수
         function highlightNodes() {
             if (!myDiagram || !myDiagram.model) return;
             
@@ -347,7 +431,6 @@
             const model = myDiagram.model;
             let firstFoundNode = null; 
 
-            // 트랜잭션 시작: 여러 데이터 변경 작업을 하나로 묶어 성능 최적화
             myDiagram.startTransaction("highlight search results");
 
             model.nodeDataArray.forEach(data => {
@@ -359,38 +442,27 @@
                 let matches = false;
 
                 if (searchText.length > 0) {
-                    // 이름, ID, 연락처에 포함되는지 확인 (부분 일치)
-                    if (name.includes(searchText) || userId.includes(searchText) || contact.includes(searchText)) {
+                    if (name.includes(searchText) || userId.includes(searchText) || contact.includes(searchText) || wallet.includes(searchText)) {
                         matches = true;
                     }
-                   // 전체 지갑 주소에 포함되는지 확인 (더 광범위한 검색)
-                   if (!matches && wallet.includes(searchText)) {
-                        matches = true;
-                   }
                 }
                 
-                // 일치하는 경우 isHighlighted를 true로 설정하고, 아닐 경우 false로 설정
                 if (data.isHighlighted !== matches) {
-                    // 데이터 속성을 변경하여 GoJS의 Binding이 노드 색상을 즉시 업데이트하도록 유도
                     model.setDataProperty(data, "isHighlighted", matches);
                 }
                 
-                // 검색 결과가 있으면 첫 번째 노드 저장
                 if (matches && !firstFoundNode) {
                     firstFoundNode = myDiagram.findNodeForKey(data.key);
                 }
             });
             
-            // 트랜잭션 종료
             myDiagram.commitTransaction("highlight search results");
             
-            // 검색 결과가 하나라도 있는 경우, 첫 번째 노드를 중심으로 이동 및 정보 표시
             if (firstFoundNode) {
                 myDiagram.centerPart(firstFoundNode);
-                firstFoundNode.isSelected = true; // 노드 선택 상태 유지
-                showNodeDetails(firstFoundNode.data); // 상세 정보 표시
+                firstFoundNode.isSelected = true;
+                showNodeDetails(firstFoundNode.data);
             } else {
-                // 검색 결과가 없거나 검색어를 지웠을 때, 모든 선택 상태 해제
                 myDiagram.clearSelection();
                 document.getElementById("selectedNodeInfo").innerHTML = "노드를 선택하면 상세 정보가 표시됩니다.";
             }
