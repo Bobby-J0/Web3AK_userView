@@ -23,8 +23,7 @@
         /* [2] 노드 상세 정보 (우측 상단) */
         .node-info { 
             position: absolute; 
-            /* ✅ 수정: 기존 55px에서 95px (40px 증가)로 조정하여 아래로 내림 */
-            top: 95px; 
+            top: 95px; /* 기능탭과 위치 일치 (40px 아래로 조정됨) */
             right: 40px; 
             max-width: 380px; 
             text-align: left; 
@@ -39,9 +38,8 @@
         /* [3] 기능 안내 박스 (좌측 상단) */
         .feature-info {
             position: absolute; 
-            /* ✅ 수정: 기존 55px에서 95px (40px 증가)로 조정하여 아래로 내림 */
-            top: 95px; 
-            left: 40px; 
+            top: 95px; /* 기능탭과 위치 일치 (40px 아래로 조정됨) */
+            left: 20px; /* ✅ 사용자 요청: 좌측으로 20px 이동 */
             max-width: 380px; 
             text-align: left; 
             
@@ -72,9 +70,11 @@
             padding: 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
-            width: 250px;
+            width: 300px; /* 검색창 너비 증가 */
         }
         .search-container button {
+            /* ✅ 실시간 강조 기능으로 인해 검색 버튼은 사용하지 않지만, HTML 구조 유지를 위해 주석 처리 */
+            /* display: none; */ 
             padding: 8px 15px;
             background-color: #007bff;
             color: white;
@@ -92,8 +92,8 @@
     <h2>Web3AK | 실시간 조직도 뷰어 & 관계 분석 엔진</h2>
     
     <div class="search-container">
-        <input type="text" id="searchInput" placeholder="이름, 연락처, 지갑주소 4자리 검색">
-        <button onclick="searchAndLocateNode()">검색</button>
+        <input type="text" id="searchInput" placeholder="이름, 연락처, 지갑주소 (부분 일치 검색)">
+        <button onclick="highlightNodes()">검색</button>
     </div>
 
     <div class="feature-info">
@@ -102,7 +102,7 @@
             <li>**데이터 연동:** Google Sheets 데이터 실시간 자동 반영</li>
             <li>**노드 상세:** 클릭 시 우측 상단에 지갑 주소 등 상세 정보 표시</li>
             <li>**기본 조작:** 조직도 확대/축소 및 이동</li>
-            <li>**검색 기능:** 이름/연락처/지갑주소로 검색하여 노드 자동 찾기</li>
+            <li>**실시간 검색:** 이름/연락처/지갑주소로 입력 즉시 노드 자동 강조 (부분 일치)</li>
         </ul>
     </div>
 
@@ -136,6 +136,7 @@
         // 노드 템플릿 정의: 각 유저 박스의 디자인과 동작 설정
         myDiagram.nodeTemplate = 
             $(go.Node, "Auto",
+                // 노드가 선택되었을 때 표시되는 테두리 (기본 파란색)
                 { selectionAdornmentTemplate: nodeSelectionAdornmentTemplate },
                 // 노드 위치 바인딩
                 new go.Binding("location", "loc", go.Point.parse).makeTwoWay(go.Point.stringify),
@@ -146,11 +147,20 @@
                     }
                 },
                 // 노드 배경 도형 (RoundedRectangle)
-                // ✅ 수정: shapeElement 이름을 부여하여 검색 강조 기능에서 활용
                 $(go.Shape, "RoundedRectangle",
-                    { name: "shapeElement", fill: "#3366cc", stroke: "#224488", strokeWidth: 2 },
-                    // 루트 노드(상위 노드 없음)인 경우 다른 색상 적용 (isRoot 바인딩)
-                    new go.Binding("fill", "isRoot", function(isRoot) { return isRoot ? "#ff9933" : "#66bb6a"; })),
+                    // name을 'shapeElement'로 부여하여 JavaScript에서 접근 가능하게 함
+                    { name: "shapeElement", strokeWidth: 2, stroke: "#224488" },
+                    // 1. 루트 노드 색상 바인딩: 최상위 노드 색상 지정
+                    new go.Binding("fill", "isRoot", function(isRoot) { 
+                        return isRoot ? "#ff9933" : "#66bb6a"; 
+                    }),
+                    // 2. ✅ 실시간 강조 색상 바인딩: isHighlighted 속성에 따라 배경색 변경 (검색 강조)
+                    new go.Binding("fill", "isHighlighted", function(isHighlighted, shape) {
+                        if (isHighlighted) return "red"; // 검색 일치 시 빨간색으로 강조
+                        // isHighlighted가 false일 경우, 원래의 isRoot 기반 색상으로 복구
+                        return shape.part.data.isRoot ? "#ff9933" : "#66bb6a"; 
+                    }).ofData() // 노드 데이터 자체의 속성을 참조하도록 설정
+                ),
                 
                 // 노드 텍스트 (유저 정보)
                 $(go.TextBlock, "Default Info",
@@ -164,13 +174,10 @@
                     new go.Binding("text", "", function(data) {
                         const name = data.유저_이름 || '이름 없음';
                         const userId = data.유저_ID;
-                        
                         let totalCountLine = "";
-                        // 총 하위 수가 있으면 줄바꿈과 함께 표시
                         if (data.총_하위_수 && data.총_하위_수 > 0) {
                             totalCountLine = `\n(총 ${data.총_하위_수}명)`;
                         }
-
                         return `${name}\n${userId}${totalCountLine}`; 
                     })
                 )
@@ -184,13 +191,10 @@
             // API에서 데이터 로드 및 차트 구성 시작
             fetchDataAndBuildChart(myDiagram);
             
-            // 검색창에 keyup 이벤트 바인딩 (Enter 키 감지)
+            // 검색창에 keyup 이벤트 바인딩 (입력 즉시 실시간 강조 함수 호출)
             const searchInput = document.getElementById('searchInput');
-            searchInput.addEventListener('keyup', function(e) {
-                if (e.key === 'Enter') {
-                    searchAndLocateNode();
-                }
-            });
+            // ✅ 수정: 'Enter' 키가 아닌 모든 키 입력 시 실시간 강조 함수 호출
+            searchInput.addEventListener('keyup', highlightNodes); 
         }
 
         // 구글 시트 API에서 데이터를 가져와 GoJS 모델을 구성하는 함수
@@ -207,30 +211,30 @@
                         throw new Error("API 응답 형식이 올바르지 않습니다.");
                     }
                     
-                    // JSON 데이터를 GoJS 모델 형식으로 변환
+                    // JSON 데이터를 GoJS 모델 형식으로 변환 (isHighlighted 기본값 추가)
                     const nodeDataArray = data.map(item => ({
-                        key: item['본인_지갑_주소'], // 각 노드의 고유 키 (지갑 주소)
-                        parent: item['상위_노드_지갑_주소'], // 부모 노드의 키
+                        key: item['본인_지갑_주소'], 
+                        parent: item['상위_노드_지갑_주소'], 
                         유저_이름: item['유저_이름'] || item['유저_ID'],
                         유저_ID: item['유저_ID'],
                         연락처: item['연락처'],
                         본인_지갑_주소: item['본인_지갑_주소'],
                         직속_하위_수: item['직속_하위_수'],
                         총_하위_수: item['총_하위_수'],
-                        isRoot: item['상위_노드_지갑_주소'] === "" // 최상위 노드 여부
-                    })).filter(item => item.key); // key가 없는 데이터는 제외
+                        isRoot: item['상위_노드_지갑_주소'] === "", 
+                        isHighlighted: false // ✅ 추가: 실시간 검색 강조를 위한 속성
+                    })).filter(item => item.key); 
 
                     // 다이어그램 모델 업데이트
                     diagram.model = $(go.TreeModel, { nodeDataArray: nodeDataArray });
                 })
                 .catch(error => {
-                    // 오류 발생 시 콘솔에 출력 및 뷰어 영역에 메시지 표시
                     console.error("데이터 로드 중 오류 발생:", error);
                     document.getElementById("orgChartDiv").innerHTML = `<p style="color: red; padding: 20px;">데이터 로드 오류: API URL(${API_URL})을 확인하거나, Apps Script가 "모든 사용자"에게 공개되었는지 확인하세요. ${error.message}</p>`;
                 });
         }
 
-        // 노드 클릭 시 우측 상단에 상세 정보를 표시하는 함수
+        // 노드 클릭 시 우측 상단에 상세 정보를 표시하는 함수 (기존 유지)
         function showNodeDetails(data) {
             const detailsDiv = document.getElementById("selectedNodeInfo");
             detailsDiv.innerHTML = `
@@ -242,68 +246,60 @@
             `;
         }
         
-        // 검색 기능을 수행하고 해당 노드를 찾아 이동 및 강조하는 함수
-        function searchAndLocateNode() {
-            if (!myDiagram) return; // 다이어그램이 없으면 함수 종료
+        // ✅ 새로 구현된 실시간 검색 강조 함수 (버튼 클릭 없이 동작)
+        function highlightNodes() {
+            if (!myDiagram || !myDiagram.model) return;
+            
             const searchInput = document.getElementById('searchInput');
             const searchText = searchInput.value.toLowerCase().trim();
+            const model = myDiagram.model;
+            let firstFoundNode = null; // 첫 번째 검색 일치 노드 저장을 위한 변수
 
-            if (searchText === "") {
-                myDiagram.clearSelection(); // 검색어가 없으면 선택 해제
-                return;
-            }
+            // 트랜잭션 시작: 여러 데이터 변경 작업을 하나로 묶어 성능 최적화
+            myDiagram.startTransaction("highlight search results");
 
-            myDiagram.clearSelection(); // 기존 선택 해제
-            
-            // 노드 데이터 배열을 순회하며 검색어와 일치하는 노드 찾기
-            const foundNodeData = myDiagram.model.nodeDataArray.find(data => {
+            model.nodeDataArray.forEach(data => {
                 const name = (data.유저_이름 || '').toLowerCase();
                 const userId = (data.유저_ID || '').toLowerCase();
                 const contact = (data.연락처 || '').toLowerCase();
                 const wallet = (data.본인_지갑_주소 || '').toLowerCase();
                 
-                // 이름, ID, 연락처에 포함되는지 확인
-                if (name.includes(searchText) || userId.includes(searchText) || contact.includes(searchText)) {
-                    return true;
-                }
-                
-                // 지갑 주소의 끝 4자리가 일치하는지 확인
-                if (searchText.length === 4 && wallet.endsWith(searchText)) {
-                    return true;
-                }
-                
-                return false;
-            });
+                let matches = false;
 
-            if (foundNodeData) {
-                const node = myDiagram.findNodeForKey(foundNodeData.key); // 키로 노드 객체 찾기
-                if (node) {
-                    // 1. 노드를 화면 중앙으로 이동 (가장 명확한 액션)
-                    myDiagram.centerPart(node);
-                    
-                    // 2. 노드 선택 (파란색 테두리 표시)
-                    node.isSelected = true;
-                    
-                    // 3. 상세 정보 표시
-                    showNodeDetails(foundNodeData);
-                    
-                    // 4. ✅ 추가: 시각적 강조 효과 (빨간색 깜빡임)
-                    const shape = node.findObject("shapeElement"); // 템플릿에서 이름으로 Shape 객체 찾기
-                    if (shape) {
-                        const originalFill = shape.fill;
-                        // 임시로 빨간색으로 변경하여 검색 성공을 명확하게 알림
-                        shape.fill = "red";
-                        
-                        // 0.5초(500ms) 후 원래 색상으로 복구
-                        setTimeout(() => {
-                            shape.fill = originalFill;
-                            node.updateTargetBindings(); 
-                        }, 500);
+                if (searchText.length > 0) {
+                    // 이름, ID, 연락처에 포함되는지 확인 (부분 일치)
+                    if (name.includes(searchText) || userId.includes(searchText) || contact.includes(searchText)) {
+                        matches = true;
+                    }
+                    // 지갑 주소의 끝 4자리가 일치하는지 확인 (4자리 입력 특수 조건)
+                    if (!matches && searchText.length >= 4 && wallet.includes(searchText)) {
+                        matches = true;
                     }
                 }
+                
+                // 일치하는 경우 isHighlighted를 true로 설정하고, 아닐 경우 false로 설정
+                if (data.isHighlighted !== matches) {
+                    model.setDataProperty(data, "isHighlighted", matches);
+                }
+                
+                // 검색 결과가 있으면 첫 번째 노드 저장
+                if (matches && !firstFoundNode) {
+                    firstFoundNode = myDiagram.findNodeForKey(data.key);
+                }
+            });
+            
+            // 트랜잭션 종료
+            myDiagram.commitTransaction("highlight search results");
+            
+            // 검색 결과가 하나라도 있는 경우, 첫 번째 노드를 중심으로 이동하여 시각적 인지도를 높임
+            if (firstFoundNode) {
+                myDiagram.centerPart(firstFoundNode);
+                firstFoundNode.isSelected = true; // 선택 상태 유지
+                showNodeDetails(firstFoundNode.data); // 상세 정보 표시
             } else {
-                // 노드를 찾지 못한 경우 경고창 표시
-                alert(`"${searchInput.value}"에 해당하는 유저를 찾을 수 없습니다.`);
+                // 검색 결과가 없거나 검색어를 지웠을 때, 모든 선택 상태 해제
+                myDiagram.clearSelection();
+                document.getElementById("selectedNodeInfo").innerHTML = "노드를 선택하면 상세 정보가 표시됩니다.";
             }
         }
 
