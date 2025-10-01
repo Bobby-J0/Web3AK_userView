@@ -113,7 +113,7 @@
         const $ = go.GraphObject.make; 
         
         let myDiagram = null; 
-
+        
         function init() {
             myDiagram =
                 $(go.Diagram, "orgChartDiv", 
@@ -166,6 +166,14 @@
                     $(go.Shape, { strokeWidth: 1.5, stroke: "#555" }));
             
             fetchDataAndBuildChart(myDiagram);
+            
+            // 
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('keyup', function(e) {
+                if (e.key === 'Enter') {
+                    searchAndLocateNode();
+                }
+            });
         }
 
         function fetchDataAndBuildChart(diagram) {
@@ -259,14 +267,8 @@
                     { fill: null, stroke: "dodgerblue", strokeWidth: 3 }),
                 $(go.Placeholder)
             );
-            
-        document.addEventListener('keypress', function(e) {
-            const searchInput = document.getElementById('searchInput');
-            if (e.key === 'Enter' && document.activeElement === searchInput) {
-                searchAndLocateNode();
-            }
-        });
 
+        
         window.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
