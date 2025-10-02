@@ -68,7 +68,8 @@
                 <!-- Search Group -->
                 <div class="flex-grow flex items-end gap-2">
                     <div class="flex-shrink-0 w-20"> 
-                        <label for="search-field" class="block text-xs font-medium text-gray-700 mb-1">검색 항목</label>
+                        <!-- 검색 항목 레이블: mb-1 -> mb-2로 수정하여 Select 박스와의 간격을 늘림 -->
+                        <label for="search-field" class="block text-xs font-medium text-gray-700 mb-2">검색 항목</label>
                         <div class="relative">
                             <select id="search-field" class="w-full border-gray-300 rounded-lg text-sm shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition appearance-none py-2.5 pl-3 pr-8">
                                 <option value="유저_ID">ID</option> 
@@ -80,20 +81,37 @@
                     </div>
                     
                     <div class="relative w-full"> 
-                        <label for="search-input" class="block text-xs font-medium text-gray-700 mb-1">검색어</label>
+                        <!-- 검색어 레이블: mb-1 -> mb-2로 수정하여 Input 박스와의 간격을 늘림 -->
+                        <label for="search-input" class="block text-xs font-medium text-gray-700 mb-2">검색어</label>
                         <input type="text" id="search-input" placeholder="지갑주소 뒤 6자리" class="w-full border-gray-300 rounded-lg text-sm shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition py-2.5 pl-10 pr-4">
                         <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2 mt-0.5"></i>
                     </div>
                 </div>
 
-                <!-- Action Group -->
+                <!-- Action Group (전환 스위치와 새로고침 버튼) -->
                 <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                    <div class="flex items-center space-x-2 border-r border-gray-200 pr-3 sm:pr-4">
-                         <label for="view-toggle" class="text-sm font-medium text-gray-700 select-none">조직도</label>
-                         <input type="checkbox" id="view-toggle" class="relative peer shrink-0 appearance-none w-11 h-6 bg-gray-200 rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer after:content-[''] after:w-5 after:h-5 after:bg-white after:rounded-full after:shadow-md after:absolute after:left-0.5 after:top-0.5 after:transition-transform after:duration-200 after:ease-in-out peer-checked:bg-indigo-600 peer-checked:after:translate-x-full">
-                         <label for="view-toggle" class="text-sm font-medium text-gray-700 select-none">지표</label>
+                    <div class="flex items-center space-x-2">
+                        <!-- 조직도 라벨: 클릭 시 toggleView 함수 호출 (false = 조직도 뷰) -->
+                         <label id="toggle-label-org" class="text-sm font-medium text-gray-700 select-none cursor-pointer" onclick="toggleView(false)">조직도</label>
+                         
+                         <!-- Custom Switch Container (Track) - 클릭 시 toggleView 함수를 통해 상태 전환 -->
+                         <div id="view-toggle-track" 
+                            class="relative w-11 h-6 transition-colors duration-200 ease-in-out bg-gray-200 rounded-full cursor-pointer" 
+                            onclick="toggleView(!DOM.viewToggle.checked)"
+                            title="뷰 전환">
+                            
+                            <!-- Hidden Checkbox for state management (클릭 간섭 방지를 위해 z-index와 크기 클래스 제거) -->
+                            <input type="checkbox" id="view-toggle" class="absolute opacity-0 m-0 p-0">
+                            
+                            <!-- Switch Thumb (The actual moving button) - JS로 위치를 직접 제어 -->
+                            <div id="view-toggle-thumb" class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-200 ease-in-out"></div>
+                         </div>
+                         
+                         <!-- 지표 라벨: 클릭 시 toggleView 함수 호출 (true = 지표 뷰) -->
+                         <label id="toggle-label-data" class="text-sm font-medium text-gray-400 select-none cursor-pointer" onclick="toggleView(true)">지표</label>
                     </div>
 
+                    <!-- 새로고침 버튼 -->
                     <button id="refresh-button" title="새로고침" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium p-2.5 rounded-lg shadow-md transition duration-200 ease-in-out flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed">
                         <i id="refresh-icon" data-lucide="refresh-cw" class="w-5 h-5"></i>
                     </button>
@@ -161,7 +179,13 @@
             refreshIcon: document.getElementById('refresh-icon'),
             searchInput: document.getElementById('search-input'),
             searchField: document.getElementById('search-field'),
-            viewToggle: document.getElementById('view-toggle'),
+            viewToggle: document.getElementById('view-toggle'), // input checkbox (state only)
+            viewToggleTrack: document.getElementById('view-toggle-track'), // new track div
+            viewToggleThumb: document.getElementById('view-toggle-thumb'), // new thumb div
+            // 라벨 색상 제어를 위한 DOM 요소
+            toggleLabelOrg: document.getElementById('toggle-label-org'),
+            toggleLabelData: document.getElementById('toggle-label-data'),
+            
             detailModal: document.getElementById('detail-modal'),
             detailModalOverlay: document.getElementById('detail-modal-overlay'),
             zoomInBtn: document.getElementById('zoom-in-btn'),
@@ -172,7 +196,7 @@
         const appState = {
             rawData: [],
             filteredData: [],
-            isTableView: false,
+            isTableView: false, // false: 조직도 (Tree View), true: 지표 (Table View)
             currentSort: { key: '', direction: 'none' }, // 'asc', 'desc', 'none'
             searchTerm: '',
             searchField: '유저_ID',
@@ -191,10 +215,12 @@
 
         function initialize() {
             addEventListeners();
-            // 초기 뷰 설정 (체크박스 상태에 따라)
+            // 초기 뷰 설정: isTableView = false (조직도)로 시작
             appState.isTableView = DOM.viewToggle.checked;
             appState.searchField = DOM.searchField.value;
             updatePlaceholder();
+            // 초기 렌더링 시점에 시각적 상태 업데이트
+            updateVisualState(appState.isTableView); 
             fetchData(false); // false: not a force refresh
         }
 
@@ -293,11 +319,61 @@
             DOM.searchInput.placeholder = placeholders[appState.searchField] || '검색...';
         }
 
+        /**
+         * 뷰 상태를 토글하고 스위치와 라벨 상태를 업데이트합니다.
+         * @param {boolean} shouldBeTableView - true면 지표(Table), false면 조직도(Tree)로 설정합니다.
+         */
+        function toggleView(shouldBeTableView) {
+            // 현재 스위치 상태와 목표 상태가 다를 경우에만 처리
+            if (DOM.viewToggle.checked !== shouldBeTableView) {
+                // 1. 상태 변경
+                DOM.viewToggle.checked = shouldBeTableView;
+                
+                // 2. 'change' 이벤트를 강제로 발생시켜 addEventListeners 내의 메인 핸들러를 실행합니다.
+                DOM.viewToggle.dispatchEvent(new Event('change'));
+            }
+        }
+
+        /**
+         * 뷰 상태에 따라 라벨 색상, 스위치 트랙 색상, 스위치 버튼 위치를 업데이트합니다.
+         * @param {boolean} isTableView - 현재 뷰가 테이블 뷰인지 여부 (true: 지표, false: 조직도)
+         */
+        function updateVisualState(isTableView) {
+            // 1. 라벨 색상 업데이트
+            if (isTableView) { // 지표 (Table View) 선택 시
+                DOM.toggleLabelOrg.classList.replace('text-gray-700', 'text-gray-400');
+                DOM.toggleLabelData.classList.replace('text-gray-400', 'text-gray-700');
+            } else { // 조직도 (Tree View) 선택 시
+                DOM.toggleLabelOrg.classList.replace('text-gray-400', 'text-gray-700');
+                DOM.toggleLabelData.classList.replace('text-gray-700', 'text-gray-400');
+            }
+
+            // 2. 스위치 트랙 색상 및 버튼 위치 업데이트 (핵심: JS로 버튼 위치 직접 제어)
+            if (isTableView) {
+                // 트랙 색상: 비활성화(gray-200) -> 활성화(indigo-600)
+                DOM.viewToggleTrack.classList.remove('bg-gray-200');
+                DOM.viewToggleTrack.classList.add('bg-indigo-600');
+                // 버튼 위치: 왼쪽 -> 오른쪽 (translate-x-5)
+                DOM.viewToggleThumb.classList.add('translate-x-5');
+                DOM.viewToggleThumb.classList.remove('translate-x-0');
+            } else {
+                // 트랙 색상: 활성화(indigo-600) -> 비활성화(gray-200)
+                DOM.viewToggleTrack.classList.remove('bg-indigo-600');
+                DOM.viewToggleTrack.classList.add('bg-gray-200');
+                // 버튼 위치: 오른쪽 -> 왼쪽 (translate-x-0)
+                DOM.viewToggleThumb.classList.add('translate-x-0');
+                DOM.viewToggleThumb.classList.remove('translate-x-5');
+            }
+        }
+
+
         // =========================================================
         // UI RENDERING
         // =========================================================
         function renderCurrentView() {
-            if (appState.isTableView) {
+            const isTableView = appState.isTableView;
+
+            if (isTableView) {
                 DOM.tableView.classList.remove('hidden');
                 DOM.treeView.classList.add('hidden');
                 renderTable();
@@ -429,10 +505,10 @@
                 .attr("stroke", d => d.data['유저_ID'] === 'ROOT' ? "#a5b4fc" : "#6366f1")
                 .attr("stroke-width", 2.5);
 
-            node.append("text").attr("dy", "-22").attr("text-anchor", "middle").style("font-size", "15px").style("font-weight", "800").attr("fill", "#111827").text(d => d.data['유저_이름']);
-            node.append("text").attr("dy", "0").attr("text-anchor", "middle").style("font-size", "13px").attr("fill", "#4f46e5").text(d => d.data['유저_ID'] !== 'ROOT' ? d.data['유저_ID'] : '');
-            node.append("text").attr("dy", "25").attr("text-anchor", "middle").style("font-size", "12px").attr("fill", "#4b5563")
-                .text(d => d.data['유저_ID'] !== 'ROOT' ? `직속:${d.data['직속_하위_수']} / 총:${d.data['총_하위_수']}` : `총원: ${appState.rawData.length}`);
+            node.append("text").attr("dy", "-10").attr("text-anchor", "middle").style("font-size", "25px").style("font-weight", "800").attr("fill", "#111827").text(d => d.data['유저_이름']);
+            node.append("text").attr("dy", "15").attr("text-anchor", "middle").style("font-size", "15px").attr("fill", "#4f46e5").text(d => d.data['유저_ID'] !== 'ROOT' ? d.data['유저_ID'] : '');
+            node.append("text").attr("dy", "35").attr("text-anchor", "middle").style("font-size", "12px").attr("fill", "#4b5563")
+                .text(d => d.data['유저_ID'] !== 'ROOT' ? `직대: ${d.data['직속_하위_수']} / 총계: ${d.data['총_하위_수']}` : `총원: ${appState.rawData.length}`);
         }
         
         function showTransientMessage(message, type = 'info') {
@@ -526,8 +602,12 @@
                 applyFiltersAndSort();
             });
 
+            // 스위치 자체(hidden input)의 상태가 변경될 때의 이벤트
             DOM.viewToggle.addEventListener('change', (e) => {
                 appState.isTableView = e.target.checked;
+                // 'change' 이벤트는 스위치 상태가 변경될 때마다 발생하며, 
+                // 이 함수 내에서 모든 UI/로직 변경을 처리합니다.
+                updateVisualState(appState.isTableView); 
                 renderCurrentView();
             });
             
@@ -535,13 +615,13 @@
             
             // D3 Controls
             DOM.zoomInBtn.addEventListener('click', () => {
-                appState.d3.svg.transition().duration(250).call(appState.d3.zoom.scaleBy, 1.3);
+                if(appState.d3.svg) appState.d3.svg.transition().duration(250).call(appState.d3.zoom.scaleBy, 1.3);
             });
             DOM.zoomOutBtn.addEventListener('click', () => {
-                appState.d3.svg.transition().duration(250).call(appState.d3.zoom.scaleBy, 0.7);
+                if(appState.d3.svg) appState.d3.svg.transition().duration(250).call(appState.d3.zoom.scaleBy, 0.7);
             });
             DOM.resetViewBtn.addEventListener('click', () => {
-                if(appState.d3.initialTransform) {
+                if(appState.d3.svg && appState.d3.initialTransform) {
                     appState.d3.svg.transition().duration(500).call(appState.d3.zoom.transform, appState.d3.initialTransform);
                 }
             });
@@ -549,5 +629,3 @@
     </script>
 </body>
 </html>
-
-
