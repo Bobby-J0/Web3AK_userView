@@ -35,20 +35,20 @@
         /* Table row cursor */
         #data-table tbody tr { cursor: pointer; }
         
-        /* Modal Transitions (Desktop) */
-        .modal-enter { opacity: 0; transform: translate(-50%, calc(-50% + 20px)) scale(0.95); }
-        .modal-enter-active { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-        .modal-exit { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-        .modal-exit-active { opacity: 0; transform: translate(-50%, calc(-50% + 20px)) scale(0.95); }
-        
         /* ------------------------------------------------------------------
-         * [근본 해결] 바텀 시트 (모바일) Transitions: 상단바 색상 변경 방지 핵심
+         * [수정] 우측 하단 슬라이드 인/아웃 Transitions
          * ------------------------------------------------------------------ */
-        .bottom-sheet-transition { transition: transform 0.3s ease-out; }
-        .bottom-sheet-enter { transform: translateY(100%); opacity: 1; }
-        .bottom-sheet-enter-active { transform: translateY(0); opacity: 1; }
-        .bottom-sheet-exit { transform: translateY(0); opacity: 1; }
-        .bottom-sheet-exit-active { transform: translateY(100%); opacity: 1; }
+        .slide-in-transition { transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); } 
+        
+        /* 초기 상태: 오른쪽 아래 화면 밖 */
+        .slide-in-enter { transform: translateX(100%) translateY(100%); opacity: 0; }
+        
+        /* 최종 상태: 화면 우측 하단 고정 */
+        .slide-in-enter-active { transform: translateX(0) translateY(0); opacity: 1; }
+        
+        /* 숨김 상태 */
+        .slide-in-exit-active { transform: translateX(100%) translateY(100%); opacity: 0; }
+
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen p-4 sm:p-6 lg:p-8">
@@ -156,16 +156,13 @@
         
     </div>
 
-    <!-- Detail Info Modal/Bottom Sheet -->
-    <!-- 오버레이는 어둡게 유지 (bg-black/70) -->
-    <div id="detail-modal-overlay" class="fixed inset-0 bg-black/70 z-40 hidden transition-opacity duration-300"></div>
+    <!-- [삭제] detail-modal-overlay 요소 제거 -->
     
-    <!-- [핵심 수정] 모바일(기본)에서는 하단 고정, 최대 높이 80vh 바텀 시트 구조로 변경 -->
+    <!-- Detail Info Modal/Bottom Sheet (우측 하단 고정 카드로 변경) -->
     <div id="detail-modal" 
-         class="fixed z-50 hidden transition-all duration-300 w-full max-w-md p-6 bg-white 
-                rounded-t-2xl shadow-2xl left-1/2 bottom-0 transform -translate-x-1/2 
-                max-h-[80vh] overflow-y-auto
-                sm:rounded-xl sm:top-1/2 sm:bottom-auto sm:-translate-y-1/2">
+         class="fixed z-50 hidden transition-all duration-300 w-full max-w-sm p-6 bg-white 
+                rounded-xl shadow-2xl right-4 bottom-4 
+                max-h-[80vh] overflow-y-auto">
         <!-- Content will be injected here -->
     </div>
 
@@ -198,7 +195,7 @@
             toggleLabelData: document.getElementById('toggle-label-data'),
             
             detailModal: document.getElementById('detail-modal'),
-            detailModalOverlay: document.getElementById('detail-modal-overlay'),
+            // [수정] detailModalOverlay 요소를 제거했으므로 DOM에서도 제거
             zoomInBtn: document.getElementById('zoom-in-btn'),
             zoomOutBtn: document.getElementById('zoom-out-btn'),
             resetViewBtn: document.getElementById('reset-view-btn'),
@@ -211,7 +208,7 @@
             currentSort: { key: '', direction: 'none' }, // 'asc', 'desc', 'none'
             searchTerm: '',
             searchField: '유저_ID',
-            isMobile: window.innerWidth < 640,
+            isMobile: window.innerWidth < 640, 
             d3: {
                 zoom: null,
                 svg: null,
@@ -298,6 +295,7 @@
                     if (direction === 'asc') {
                         return isNumeric ? valA - valB : String(valA).localeCompare(String(valB));
                     } else {
+                        // 문자열 내림차순은 역순으로 비교, 숫자 내림차순은 큰 값에서 작은 값 빼기
                         return isNumeric ? valB - valA : String(valB).localeCompare(String(a['유저_이름']));
                     }
                 });
@@ -316,7 +314,7 @@
                     currentSort.direction = 'none';
                 }
             } else {
-                currentSort.key = key;
+                currentSort.key = '유저_이름' === key ? '유저_이름' : key; // 성명 클릭 시 '유저_이름'으로 처리
                 currentSort.direction = 'asc';
             }
             applyFiltersAndSort();
@@ -334,7 +332,8 @@
         function toggleView(shouldBeTableView) {
             if (DOM.viewToggle.checked !== shouldBeTableView) {
                 DOM.viewToggle.checked = shouldBeTableView;
-                DOM.viewToggle.dispatchEvent(new Event('change'));
+                // 체크박스의 상태 변화를 감지하여 이벤트 리스너를 트리거합니다.
+                DOM.viewToggle.dispatchEvent(new Event('change')); 
             }
         }
 
@@ -432,7 +431,10 @@
             }
 
             DOM.treeContainer.innerHTML = '';
-            if (appState.rawData.length === 0) return;
+            if (appState.rawData.length === 0) {
+                 DOM.treeContainer.innerHTML = '<p class="text-center py-10 text-gray-500">표시할 데이터가 없습니다.</p>';
+                 return;
+            }
 
             function customElbowLink(d) {
                 const source = d.source;
@@ -441,21 +443,28 @@
                 return `M${source.x},${source.y}V${midY}H${target.x}V${target.y}`;
             }
 
+            // 1. 데이터 구조화 (Tree Hierarchy 생성)
             const dataMap = appState.rawData.reduce((map, node) => {
-                map[node['본인_지갑_주소']] = { ...node, children: [] };
+                // 본인 지갑 주소를 키로 사용
+                map[node['본인_지갑_주소']] = { ...node, children: [] }; 
                 return map;
             }, {});
 
             const roots = [];
             appState.rawData.forEach(node => {
+                const nodeData = dataMap[node['본인_지갑_주소']];
                 const parentAddr = node['상위_노드_지갑_주소'];
+                
+                // 유효한 상위 노드가 있고, 그 상위 노드가 자기 자신이 아닐 때
                 if (parentAddr && dataMap[parentAddr] && parentAddr !== node['본인_지갑_주소']) {
-                    dataMap[parentAddr].children.push(dataMap[node['본인_지갑_주소']]);
+                    dataMap[parentAddr].children.push(nodeData);
                 } else {
-                    roots.push(dataMap[node['본인_지갑_주소']]);
+                    // 상위 노드가 없거나, 데이터에 존재하지 않으면 루트로 간주
+                    roots.push(nodeData);
                 }
             });
 
+            // 전체 조직을 묶는 가상의 최상위 노드 생성
             const rootData = roots.length > 1 ? { '유저_이름': '전체 조직', '유저_ID': 'ROOT', children: roots } : roots[0];
             if (!rootData) {
                  DOM.treeContainer.innerHTML = '<p class="text-center py-10 text-gray-500">유효한 루트 노드를 찾을 수 없습니다.</p>';
@@ -465,10 +474,12 @@
             const width = DOM.treeContainer.clientWidth;
             const height = DOM.treeContainer.clientHeight;
             
+            // D3 Tree Layout 설정 (노드 간격 조정)
             const treeLayout = d3.tree().nodeSize([100, 150]); 
             const root = d3.hierarchy(rootData);
             const treeData = treeLayout(root);
 
+            // 2. SVG 및 Zoom/Pan 초기화
             appState.d3.svg = d3.select(DOM.treeContainer).append("svg")
                 .attr("width", width)
                 .attr("height", height)
@@ -482,36 +493,44 @@
             
             appState.d3.svg.call(appState.d3.zoom);
 
+            // 초기 뷰 변환 (중앙 상단에 위치)
             const initialX = width / 2;
             const initialY = 100;
             appState.d3.initialTransform = d3.zoomIdentity.translate(initialX, initialY).scale(0.8);
             
             if (currentTransform) {
+                // 이전에 줌 상태가 있었다면 유지
                 appState.d3.svg.call(appState.d3.zoom.transform, currentTransform);
             } else {
+                // 최초 로딩 시 초기 뷰 적용
                 appState.d3.svg.call(appState.d3.zoom.transform, appState.d3.initialTransform);
             }
 
 
+            // 3. Link (선) 그리기
             appState.d3.g.selectAll(".link")
                 .data(treeData.links()).enter().append("path")
                 .attr("fill", "none").attr("stroke", "#94a3b8").attr("stroke-width", 2.5) 
                 .attr("d", customElbowLink);
 
+            // 4. Node (박스) 그리기
             const nodeWidth = 150, nodeHeight = 90;
             const node = appState.d3.g.selectAll(".node")
                 .data(treeData.descendants()).enter().append("g")
                 .attr("transform", d => `translate(${d.x},${d.y})`)
                 .attr("cursor", d => d.data['유저_ID'] === 'ROOT' ? 'default' : 'pointer')
                 .on("click", (event, d) => {
+                    // ROOT 노드가 아닐 때만 상세 모달 표시
                     if (d.data['유저_ID'] !== 'ROOT') showDetailModal(d.data['유저_ID']);
                 });
 
             
+            // Node 배경 사각형
             node.append("rect")
                 .attr("width", nodeWidth).attr("height", nodeHeight)
                 .attr("x", -nodeWidth / 2).attr("y", -nodeHeight / 2)
                 .attr("rx", 6).attr("ry", 6)
+                // 검색 결과 하이라이트
                 .attr("fill", d => {
                     const value = String(d.data[appState.searchField] || '').toLowerCase();
                     return appState.searchTerm && value.includes(appState.searchTerm) ? '#eff6ff' : '#ffffff'; 
@@ -519,10 +538,13 @@
                 .attr("stroke", d => d.data['유저_ID'] === 'ROOT' ? "#6366f1" : "#4338ca") 
                 .attr("stroke-width", 2.5);
 
+            // 텍스트: 이름 (가장 크게)
             node.append("text").attr("dy", "-15").attr("text-anchor", "middle").style("font-size", "18px").style("font-weight", "800").attr("fill", "#111827").text(d => d.data['유저_이름']);
             
+            // 텍스트: 유저 ID (지갑 주소 약어 등)
             node.append("text").attr("dy", "10").attr("text-anchor", "middle").style("font-size", "15px").attr("fill", "#1e40af").text(d => d.data['유저_ID'] !== 'ROOT' ? d.data['유저_ID'] : ''); 
 
+            // 텍스트: 하위 노드 수
             node.append("text").attr("dy", "35").attr("text-anchor", "middle").style("font-size", "12px").attr("fill", "#4b5563")
                 .text(d => d.data['유저_ID'] !== 'ROOT' ? `직속:${d.data['직속_하위_수']} / 총:${d.data['총_하위_수']}` : `총원: ${appState.rawData.length}`);
         }
@@ -545,15 +567,12 @@
         }
 
         // =========================================================
-        // DETAIL MODAL (Bottom Sheet logic updated)
+        // [수정] DETAIL MODAL (우측 하단 슬라이드 카드 - 오버레이 제거)
         // =========================================================
         function showDetailModal(userId) {
             const user = appState.rawData.find(u => u['유저_ID'] === userId);
             if (!user) return;
             
-            // 모바일 여부를 다시 확인하여 바텀 시트/모달을 구분합니다.
-            appState.isMobile = window.innerWidth < 640;
-
             const content = `
                 <button onclick="hideDetailModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition"><i data-lucide="x" class="w-5 h-5"></i></button>
                 <h3 class="text-xl font-bold text-indigo-700 mb-1">${user['유저_이름']}</h3>
@@ -580,46 +599,37 @@
             DOM.detailModal.innerHTML = content;
             lucide.createIcons();
 
-            DOM.detailModalOverlay.classList.remove('hidden');
+            // [수정] 오버레이 관련 코드 제거
+            // DOM.detailModalOverlay.classList.remove('hidden');
             DOM.detailModal.classList.remove('hidden');
             
-            // For transition effect (구조적 변경: isMobile에 따라 다른 애니메이션 클래스 적용)
+            // 슬라이드 인 애니메이션 적용
             requestAnimationFrame(() => {
-                 DOM.detailModalOverlay.classList.add('opacity-100');
-                 if (appState.isMobile) {
-                    // 모바일: 바텀 시트 애니메이션 적용
-                    DOM.detailModal.classList.add('bottom-sheet-transition', 'bottom-sheet-enter-active');
-                    DOM.detailModal.classList.remove('bottom-sheet-enter');
-                 } else {
-                    // 데스크톱: 중앙 모달 애니메이션 적용
-                    DOM.detailModal.classList.add('modal-enter-active');
-                    DOM.detailModal.classList.remove('modal-enter');
-                 }
+                 // DOM.detailModalOverlay.classList.add('opacity-100'); // 오버레이 관련 코드 제거
+                 // 초기 상태 제거 후 활성화 상태 적용
+                 DOM.detailModal.classList.add('slide-in-transition');
+                 DOM.detailModal.classList.remove('slide-in-enter'); 
+                 DOM.detailModal.classList.add('slide-in-enter-active'); 
             });
         }
         
         function hideDetailModal() {
-            DOM.detailModalOverlay.classList.remove('opacity-100');
+            // DOM.detailModalOverlay.classList.remove('opacity-100'); // 오버레이 관련 코드 제거
 
-            if (appState.isMobile) {
-                DOM.detailModal.classList.add('bottom-sheet-exit-active');
-                DOM.detailModal.classList.remove('bottom-sheet-exit');
-            } else {
-                DOM.detailModal.classList.add('modal-exit-active');
-                DOM.detailModal.classList.remove('modal-exit');
-            }
+            // 슬라이드 아웃 애니메이션 적용
+            DOM.detailModal.classList.add('slide-in-exit-active');
+            DOM.detailModal.classList.remove('slide-in-enter-active');
             
             setTimeout(() => {
-                DOM.detailModalOverlay.classList.add('hidden');
+                // DOM.detailModalOverlay.classList.add('hidden'); // 오버레이 관련 코드 제거
                 DOM.detailModal.classList.add('hidden');
                 
-                // 클래스 초기화
-                DOM.detailModal.className = 'fixed z-50 hidden transition-all duration-300 w-full max-w-md p-6 bg-white ' +
-                                            'rounded-t-2xl shadow-2xl left-1/2 bottom-0 transform -translate-x-1/2 ' +
-                                            'max-h-[80vh] overflow-y-auto ' +
-                                            'sm:rounded-xl sm:top-1/2 sm:bottom-auto sm:-translate-y-1/2';
+                // 클래스 초기화 (다음 표시를 위해 초기 상태 클래스 재설정)
+                DOM.detailModal.className = 'fixed z-50 hidden transition-all duration-300 w-full max-w-sm p-6 bg-white ' +
+                                            'rounded-xl shadow-2xl right-4 bottom-4 ' +
+                                            'max-h-[80vh] overflow-y-auto slide-in-enter'; // 초기 상태 클래스 추가
                 DOM.detailModal.innerHTML = '';
-            }, 300);
+            }, 400); // CSS transition duration과 일치
         }
 
         // =========================================================
@@ -639,38 +649,43 @@
                 applyFiltersAndSort(); 
             });
 
+            // 뷰 전환(체크박스) 이벤트 리스너
             DOM.viewToggle.addEventListener('change', (e) => {
                 appState.isTableView = e.target.checked;
-                updateVisualState(appState.isTableView); 
+                updateVisualState(appState.isTableView);
                 renderCurrentView();
             });
             
-            DOM.detailModalOverlay.addEventListener('click', hideDetailModal);
+            // [수정] 오버레이를 제거했으므로 오버레이 클릭 리스너도 제거
+            // DOM.detailModalOverlay.addEventListener('click', hideDetailModal);
             
-            // D3 Controls
+            // D3 Controls (줌, 리셋)
             DOM.zoomInBtn.addEventListener('click', () => {
-                if(appState.d3.svg) appState.d3.svg.transition().duration(250).call(appState.d3.zoom.scaleBy, 1.3);
+                if (appState.d3.svg && appState.d3.zoom) {
+                    appState.d3.svg.transition().duration(250).call(appState.d3.zoom.scaleBy, 1.3);
+                }
             });
             DOM.zoomOutBtn.addEventListener('click', () => {
-                if(appState.d3.svg) appState.d3.svg.transition().duration(250).call(appState.d3.zoom.scaleBy, 0.7);
+                if (appState.d3.svg && appState.d3.zoom) {
+                    appState.d3.svg.transition().duration(250).call(appState.d3.zoom.scaleBy, 0.7);
+                }
             });
             DOM.resetViewBtn.addEventListener('click', () => {
-                if(appState.d3.svg && appState.d3.initialTransform) {
+                if(appState.d3.svg && appState.d3.zoom && appState.d3.initialTransform) {
+                    // 500ms 동안 부드럽게 초기 위치로 복귀
                     appState.d3.svg.transition().duration(500).call(appState.d3.zoom.transform, appState.d3.initialTransform);
                 }
             });
-             
-             window.addEventListener('resize', () => {
-                 // 모바일 여부 상태 업데이트
-                 const wasMobile = appState.isMobile;
-                 appState.isMobile = window.innerWidth < 640;
-
-                 // 창 크기가 모바일/데스크톱 경계를 넘었을 때만 트리 뷰를 다시 렌더링하여 반응성을 보장합니다.
-                 if (wasMobile !== appState.isMobile && !appState.isTableView && DOM.treeContainer.clientWidth > 0) {
-                     renderTree();
-                 }
-            });
-        }
+        } // addEventListeners 함수 닫는 부분
+        
+        // 초기 로딩 시 detailModal에 초기 상태 클래스 적용
+        document.addEventListener('DOMContentLoaded', () => {
+            const detailModal = document.getElementById('detail-modal');
+            if (detailModal) {
+                // 초기에는 화면 밖에 위치하도록 설정
+                detailModal.classList.add('slide-in-enter'); 
+            }
+        });
     </script>
 </body>
 </html>
