@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- [수정] 브라우저 상단 바 색상을 페이지 배경색(#f9fafb에 가까운 #f3f4f6)으로 고정합니다. -->
+    <meta name="theme-color" content="#f3f4f6"> 
     <title>Web3AK 대시보드</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -68,7 +70,6 @@
                 <!-- Search Group -->
                 <div class="flex-grow flex items-end gap-2">
                     <div class="flex-shrink-0 w-20"> 
-                        <!-- 검색 항목 레이블: mb-1 -> mb-2로 수정하여 Select 박스와의 간격을 늘림 -->
                         <label for="search-field" class="block text-xs font-medium text-gray-700 mb-2">검색 항목</label>
                         <div class="relative">
                             <select id="search-field" class="w-full border-gray-300 rounded-lg text-sm shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition appearance-none py-2.5 pl-3 pr-8">
@@ -81,7 +82,6 @@
                     </div>
                     
                     <div class="relative w-full"> 
-                        <!-- 검색어 레이블: mb-1 -> mb-2로 수정하여 Input 박스와의 간격을 늘림 -->
                         <label for="search-input" class="block text-xs font-medium text-gray-700 mb-2">검색어</label>
                         <input type="text" id="search-input" placeholder="지갑주소 뒤 6자리" class="w-full border-gray-300 rounded-lg text-sm shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition py-2.5 pl-10 pr-4">
                         <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2 mt-0.5"></i>
@@ -120,7 +120,7 @@
             </div>
         </div>
 
-        <!-- Content Area -->
+        <!-- Status Message Area -->
         <div id="loading-state" class="text-center py-20">
             <i data-lucide="loader-2" class="spin w-12 h-12 text-indigo-500 mx-auto mb-4"></i>
             <p class="text-indigo-600 font-medium text-lg">데이터를 불러오는 중입니다...</p>
@@ -286,7 +286,7 @@
                     if (direction === 'asc') {
                         return isNumeric ? valA - valB : String(valA).localeCompare(String(valB));
                     } else {
-                        return isNumeric ? valB - valA : String(valB).localeCompare(String(valA));
+                        return isNumeric ? valB - valA : String(valB).localeCompare(String(a['유저_이름']));
                     }
                 });
             }
@@ -430,8 +430,26 @@
         }
         
         function renderTree() {
+            // 1. 기존 Zoom/Pan 상태 저장: 캔버스를 지우기 전에 현재 변환 상태를 가져옴
+            let currentTransform = null;
+            if (appState.d3.svg) {
+                // 기존 SVG 노드의 현재 변환(Transform) 상태를 d3.zoomTransform을 이용해 가져옵니다.
+                currentTransform = d3.zoomTransform(appState.d3.svg.node());
+            }
+
             DOM.treeContainer.innerHTML = '';
             if (appState.rawData.length === 0) return;
+
+            // [직각 선 함수]
+            function customElbowLink(d) {
+                const source = d.source;
+                const target = d.target;
+                // 부모 노드와 자식 노드 사이의 수직 중간 지점 계산
+                const midY = (source.y + target.y) / 2;
+                
+                // SVG Path 명령어: M(시작) -> V(수직) -> H(수평) -> V(수직, 끝)
+                return `M${source.x},${source.y}V${midY}H${target.x}V${target.y}`;
+            }
 
             const dataMap = appState.rawData.reduce((map, node) => {
                 map[node['본인_지갑_주소']] = { ...node, children: [] };
@@ -457,7 +475,9 @@
             const width = DOM.treeContainer.clientWidth;
             const height = DOM.treeContainer.clientHeight;
             
-            const treeLayout = d3.tree().nodeSize([170, 140]);
+            // [핵심 변경] 노드 간 간격 조정: (가로 100px, 세로 150px)
+            // 노드 가로 길이(150px)를 고려하여 수평 간격(100px)을 최소화 (여백 20px)
+            const treeLayout = d3.tree().nodeSize([100, 150]); 
             const root = d3.hierarchy(rootData);
             const treeData = treeLayout(root);
 
@@ -477,14 +497,21 @@
             const initialX = width / 2;
             const initialY = 100;
             appState.d3.initialTransform = d3.zoomIdentity.translate(initialX, initialY).scale(0.8);
-            appState.d3.svg.call(appState.d3.zoom.transform, appState.d3.initialTransform);
+            
+            // 2. 저장된 Zoom/Pan 상태 복원
+            if (currentTransform) {
+                appState.d3.svg.call(appState.d3.zoom.transform, currentTransform);
+            } else {
+                appState.d3.svg.call(appState.d3.zoom.transform, appState.d3.initialTransform);
+            }
 
 
             appState.d3.g.selectAll(".link")
                 .data(treeData.links()).enter().append("path")
-                .attr("fill", "none").attr("stroke", "#d1d5db").attr("stroke-width", 2)
-                .attr("d", d3.linkVertical().x(d => d.x).y(d => d.y));
+                .attr("fill", "none").attr("stroke", "#94a3b8").attr("stroke-width", 2.5) 
+                .attr("d", customElbowLink); // 직각 선 함수 적용
 
+            const nodeWidth = 150, nodeHeight = 90;
             const node = appState.d3.g.selectAll(".node")
                 .data(treeData.descendants()).enter().append("g")
                 .attr("transform", d => `translate(${d.x},${d.y})`)
@@ -493,22 +520,28 @@
                     if (d.data['유저_ID'] !== 'ROOT') showDetailModal(d.data['유저_ID']);
                 });
 
-            const nodeWidth = 150, nodeHeight = 90;
+            
             node.append("rect")
                 .attr("width", nodeWidth).attr("height", nodeHeight)
                 .attr("x", -nodeWidth / 2).attr("y", -nodeHeight / 2)
-                .attr("rx", 8).attr("ry", 8)
+                .attr("rx", 6).attr("ry", 6) // 모서리 둥글기
                 .attr("fill", d => {
+                    // 검색 필터링된 노드만 하이라이트
                     const value = String(d.data[appState.searchField] || '').toLowerCase();
-                    return appState.searchTerm && value.includes(appState.searchTerm) ? '#e0e7ff' : '#ffffff';
+                    return appState.searchTerm && value.includes(appState.searchTerm) ? '#eff6ff' : '#ffffff'; 
                 })
-                .attr("stroke", d => d.data['유저_ID'] === 'ROOT' ? "#a5b4fc" : "#6366f1")
+                .attr("stroke", d => d.data['유저_ID'] === 'ROOT' ? "#6366f1" : "#4338ca") // 노드 테두리 색상 (ROOT: Indigo-500, Standard: Indigo-700)
                 .attr("stroke-width", 2.5);
 
-            node.append("text").attr("dy", "-10").attr("text-anchor", "middle").style("font-size", "25px").style("font-weight", "800").attr("fill", "#111827").text(d => d.data['유저_이름']);
-            node.append("text").attr("dy", "15").attr("text-anchor", "middle").style("font-size", "15px").attr("fill", "#4f46e5").text(d => d.data['유저_ID'] !== 'ROOT' ? d.data['유저_ID'] : '');
+            // 성명
+            node.append("text").attr("dy", "-15").attr("text-anchor", "middle").style("font-size", "18px").style("font-weight", "800").attr("fill", "#111827").text(d => d.data['유저_이름']);
+            
+            // ID
+            node.append("text").attr("dy", "10").attr("text-anchor", "middle").style("font-size", "15px").attr("fill", "#1e40af").text(d => d.data['유저_ID'] !== 'ROOT' ? d.data['유저_ID'] : ''); 
+
+            // 하위 수
             node.append("text").attr("dy", "35").attr("text-anchor", "middle").style("font-size", "12px").attr("fill", "#4b5563")
-                .text(d => d.data['유저_ID'] !== 'ROOT' ? `직대: ${d.data['직속_하위_수']} / 총계: ${d.data['총_하위_수']}` : `총원: ${appState.rawData.length}`);
+                .text(d => d.data['유저_ID'] !== 'ROOT' ? `직속:${d.data['직속_하위_수']} / 총:${d.data['총_하위_수']}` : `총원: ${appState.rawData.length}`);
         }
         
         function showTransientMessage(message, type = 'info') {
@@ -599,7 +632,7 @@
             DOM.searchField.addEventListener('change', (e) => {
                 appState.searchField = e.target.value;
                 updatePlaceholder();
-                applyFiltersAndSort();
+                applyFiltersAndSort(); 
             });
 
             // 스위치 자체(hidden input)의 상태가 변경될 때의 이벤트
@@ -624,6 +657,13 @@
                 if(appState.d3.svg && appState.d3.initialTransform) {
                     appState.d3.svg.transition().duration(500).call(appState.d3.zoom.transform, appState.d3.initialTransform);
                 }
+            });
+             // Add resize listener to handle responsiveness if needed, especially for mobile view
+             window.addEventListener('resize', () => {
+                 // Re-render the tree on resize to maintain proportions and re-center
+                 if (!appState.isTableView && DOM.treeContainer.clientWidth > 0) {
+                     renderTree();
+                 }
             });
         }
     </script>
