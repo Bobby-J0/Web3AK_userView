@@ -3,843 +3,550 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web3AK 대시보드</title>
+    <title>Web3AK 대시보드 (최적화 버전)</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons for Web/App Icons -->
+    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- D3.js for Interactive Tree Visualization -->
+    <!-- D3.js -->
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        /* Inter 폰트 사용 */
+        /* Google Inter Font */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-        :root {
+        html, body {
             font-family: 'Inter', sans-serif;
+            scroll-behavior: smooth;
         }
-        /* 스크롤바 스타일 */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #9ca3af; /* gray-400 */
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #f3f4f6; /* gray-100 */
-        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-thumb { background: #9ca3af; border-radius: 4px; }
+        ::-webkit-scrollbar-track { background: #f3f4f6; }
         
-        .table-wrapper {
-            /* 기존 수평 스크롤은 유지 */
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-        
-        .loading-icon {
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-        /* 드롭다운 화살표 제거 (appearance-none 사용 시 필요) */
-        select.appearance-none::-ms-expand {
-            display: none;
-        }
-        
-        /* 검색어 지우기 버튼 스타일 */
-        .clear-button {
-            position: absolute;
-            right: 4px; 
-            top: 50%;
-            transform: translateY(-50%);
-            padding: 8px; 
-            cursor: pointer;
-            color: #9ca3af; 
-            border-radius: 50%;
-            transition: color 0.15s ease-in-out;
-            -webkit-tap-highlight-color: transparent; 
-        }
-        .clear-button:hover, .clear-button:active {
-            color: #4b5563; 
-            background-color: #e5e7eb; 
-        }
+        /* Animation for loading icons */
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-        /* D3 조직도 스타일 */
-        #tree-container svg {
-            /* 드래그를 용이하게 하기 위해 커서 변경 */
-            cursor: grab;
-            /* SVG의 배경을 흰색으로 설정 */
-            background-color: #ffffff;
-            border-radius: 0.75rem; /* rounded-xl */
-        }
+        /* D3 Tree Styles */
+        #tree-container svg { cursor: grab; background-color: #ffffff; border-radius: 0.75rem; }
+        .node text { font-family: 'Inter', sans-serif; pointer-events: none; }
+
+        /* Table row cursor */
+        #data-table tbody tr { cursor: pointer; }
         
-        /* D3 노드 텍스트 스타일 */
-        .node text {
-            font-family: 'Inter', sans-serif;
-            pointer-events: none; /* 텍스트 위에서 드래그 가능하도록 설정 */
-        }
-        
-        /* 테이블 행 커서 포인터 설정 */
-        #data-table tbody tr {
-            cursor: pointer;
-        }
+        /* Modal Transitions */
+        .modal-enter { opacity: 0; transform: translateY(20px) scale(0.95); }
+        .modal-enter-active { opacity: 1; transform: translateY(0) scale(1); }
+        .modal-exit { opacity: 1; transform: translateY(0) scale(1); }
+        .modal-exit-active { opacity: 0; transform: translateY(20px) scale(0.95); }
+
+        /* Bottom Sheet (Mobile Modal) Transitions */
+        .bottom-sheet-enter { transform: translateY(100%); }
+        .bottom-sheet-enter-active { transform: translateY(0); }
+        .bottom-sheet-exit { transform: translateY(0); }
+        .bottom-sheet-exit-active { transform: translateY(100%); }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen p-4 sm:p-8">
+<body class="bg-gray-50 min-h-screen p-4 sm:p-6 lg:p-8">
     <div id="app" class="max-w-7xl mx-auto">
         
-        <!-- Header & Title -->
-        <header class="mb-8">
-            <h1 class="text-3xl sm:text-4xl font-extrabold text-indigo-700 flex items-center">
+        <!-- Header -->
+        <header class="mb-6">
+            <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-indigo-700 flex items-center">
                 <i data-lucide="network" class="w-8 h-8 mr-3 text-indigo-500"></i>
-                Web3AK 조직도 및 지표
+                Web3AK 조직도 대시보드
             </h1>
-            <p class="text-gray-500 mt-1">Google Sheets 기반 실시간 조직 구조 및 지표 대시보드</p>
-            <div id="status-message" class="mt-4 text-sm font-medium text-red-500 hidden"></div>
+            <p class="text-gray-500 mt-1 text-sm sm:text-base">Google Sheets 기반 실시간 조직 구조 및 지표</p>
         </header>
+        
+        <!-- Status Message Area -->
+        <div id="status-message" class="hidden transition-opacity duration-300"></div>
 
         <!-- Control Panel -->
-        <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg mb-8">
-            <div class="flex flex-row flex-nowrap items-end justify-start gap-4"> 
+        <div class="bg-white p-4 sm:p-5 rounded-xl shadow-lg mb-6">
+            <div class="flex flex-col sm:flex-row sm:items-end gap-4"> 
                 
-                <!-- 1. Search Field Select (크기 최소화: w-16) -->
-                <div class="flex-shrink-0 w-16"> 
-                    <label for="search-field" class="block text-xs font-medium text-gray-700 mb-1">검색 항목</label>
-                    <div class="relative">
-                        <!-- 높이 일치 py-2.5 -->
-                        <select id="search-field" 
-                                class="w-full border border-gray-300 rounded-lg py-2.5 pl-2 pr-6 text-sm focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition duration-150 ease-in-out appearance-none" 
-                                onchange="filterData()">
-                            <!-- ID를 기본값으로 설정 -->
-                            <option value="유저_ID">ID</option> 
-                            <option value="유저_이름">성명</option>
-                            <option value="연락처">연락처</option>
-                        </select>
-                        <i data-lucide="chevron-down" class="w-3 h-3 text-gray-400 absolute right-1.5 top-1/2 transform -translate-y-1/2 pointer-events-none"></i>
-                    </div>
-                </div>
-                
-                <!-- 2. Search Input -->
-                <div class="flex-shrink w-full sm:max-w-[200px]"> 
-                    <label for="search-input" class="block text-sm font-medium text-gray-700 mb-1 whitespace-nowrap">검색어 입력</label>
-                    <div class="relative">
-                        <input type="text" id="search-input" placeholder="지갑주소 뒤 6자리" class="w-full border border-gray-300 rounded-lg py-2.5 pl-9 pr-9 text-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out shadow-sm"
-                            oninput="filterData()">
-                        <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2"></i>
-                        
-                        <div id="clear-search-button" class="clear-button hidden" onmousedown="clearSearch(event)">
-                            <i data-lucide="x-circle" class="w-4 h-4"></i>
+                <!-- Search Group -->
+                <div class="flex-grow flex items-end gap-2">
+                    <div class="flex-shrink-0 w-20"> 
+                        <label for="search-field" class="block text-xs font-medium text-gray-700 mb-1">검색 항목</label>
+                        <div class="relative">
+                            <select id="search-field" class="w-full border-gray-300 rounded-lg text-sm shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition appearance-none py-2.5 pl-3 pr-8">
+                                <option value="유저_ID">ID</option> 
+                                <option value="유저_이름">성명</option>
+                                <option value="연락처">연락처</option>
+                            </select>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 transform -translate-y-1/2 pointer-events-none"></i>
                         </div>
+                    </div>
+                    
+                    <div class="relative w-full"> 
+                        <label for="search-input" class="block text-xs font-medium text-gray-700 mb-1">검색어</label>
+                        <input type="text" id="search-input" placeholder="지갑주소 뒤 6자리" class="w-full border-gray-300 rounded-lg text-sm shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition py-2.5 pl-10 pr-4">
+                        <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2 mt-0.5"></i>
                     </div>
                 </div>
 
-                <!-- 3. Refresh Button -->
-                <div class="flex-shrink-0"> 
-                    <button id="refresh-button" class="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition duration-200 ease-in-out flex items-center disabled:opacity-50 whitespace-nowrap text-sm" onclick="fetchData(true)">
-                        <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i>
+                <!-- Action Group -->
+                <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                    <div class="flex items-center space-x-2 border-r border-gray-200 pr-3 sm:pr-4">
+                         <label for="view-toggle" class="text-sm font-medium text-gray-700 select-none">조직도</label>
+                         <input type="checkbox" id="view-toggle" class="relative peer shrink-0 appearance-none w-11 h-6 bg-gray-200 rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer after:content-[''] after:w-5 after:h-5 after:bg-white after:rounded-full after:shadow-md after:absolute after:left-0.5 after:top-0.5 after:transition-transform after:duration-200 after:ease-in-out peer-checked:bg-indigo-600 peer-checked:after:translate-x-full">
+                         <label for="view-toggle" class="text-sm font-medium text-gray-700 select-none">지표</label>
+                    </div>
+
+                    <button id="refresh-button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition duration-200 ease-in-out flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap text-sm">
+                        <i id="refresh-icon" data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i>
                         새로고침
                     </button>
                 </div>
 
-                <!-- 4. View Toggle (순서 및 레이블 변경) -->
-                <div class="flex-shrink-0 flex items-center space-x-2"> 
-                    <!-- 체크박스가 체크되면 isTableView=true (지표 보기)로 전환됨 -->
-                    <input type="checkbox" id="view-toggle" class="h-5 w-5 text-indigo-600 rounded-full focus:ring-indigo-500 transition duration-150 ease-in-out" onchange="toggleView()">
-                    <label for="view-toggle" class="text-sm font-medium text-gray-700 select-none whitespace-nowrap">지표 보기</label>
-                </div>
-
             </div>
         </div>
 
-        <!-- Content Area: Table / Tree -->
-        <div id="loading-state" class="text-center py-10">
-            <i data-lucide="loader-2" class="loading-icon w-10 h-10 text-indigo-500 mx-auto mb-3"></i>
-            <p class="text-indigo-500 font-medium">데이터를 불러오는 중입니다...</p>
+        <!-- Content Area -->
+        <div id="loading-state" class="text-center py-20">
+            <i data-lucide="loader-2" class="spin w-12 h-12 text-indigo-500 mx-auto mb-4"></i>
+            <p class="text-indigo-600 font-medium text-lg">데이터를 불러오는 중입니다...</p>
         </div>
 
         <div id="data-container" class="mt-6 hidden">
-            <!-- Table View (지표 보기) - 기본적으로 숨겨짐 -->
-            <div id="table-view" class="table-wrapper bg-white rounded-xl shadow-lg p-4 overflow-y-auto max-h-[calc(100vh-280px)] hidden">
-                <table id="data-table" class="min-w-full divide-y divide-gray-200"> 
-                    <!-- Headers will be inserted here -->
-                    <!-- *** 이 부분을 수정했습니다: bg-gray-50 -> bg-white, z-10 -> z-20, shadow-sm -> shadow-md *** -->
-                    <thead class="bg-white sticky top-0 z-20 shadow-md">
-                        <tr id="table-header">
-                            <!-- Headers will be inserted here -->
-                        </tr>
-                    </thead>
-                    <tbody id="table-body" class="bg-white divide-y divide-gray-200">
-                        <!-- Data rows will be inserted here -->
-                    </tbody>
-                </table>
+            <!-- Table View -->
+            <div id="table-view" class="bg-white rounded-xl shadow-lg p-4 overflow-x-auto hidden">
+                <div class="overflow-y-auto max-h-[calc(100vh-320px)]">
+                    <table id="data-table" class="min-w-full divide-y divide-gray-200"> 
+                        <thead class="bg-gray-50 sticky top-0 z-10">
+                            <tr id="table-header"></tr>
+                        </thead>
+                        <tbody id="table-body" class="bg-white divide-y divide-gray-200"></tbody>
+                    </table>
+                </div>
             </div>
 
-            <!-- Tree View (조직도/마인드맵) - 기본적으로 보여짐 -->
-            <div id="tree-view" class="bg-white rounded-xl shadow-lg p-6 min-h-[500px]">
-                <!-- D3.js가 SVG를 렌더링할 컨테이너 (높이를 확보해야 D3 시각화가 제대로 보입니다) -->
-                <div id="tree-container" class="w-full h-[900px]">
-                </div>
+            <!-- Tree View -->
+            <div id="tree-view" class="relative">
+                 <div id="tree-container" class="w-full h-[65vh] sm:h-[70vh] bg-white rounded-xl shadow-lg"></div>
+                 <!-- D3 Control Buttons -->
+                 <div class="absolute top-4 right-4 flex flex-col gap-2 z-10">
+                    <button id="zoom-in-btn" class="bg-white/80 backdrop-blur-sm hover:bg-gray-100 text-gray-700 p-2 rounded-full shadow-md transition"><i data-lucide="zoom-in" class="w-5 h-5"></i></button>
+                    <button id="zoom-out-btn" class="bg-white/80 backdrop-blur-sm hover:bg-gray-100 text-gray-700 p-2 rounded-full shadow-md transition"><i data-lucide="zoom-out" class="w-5 h-5"></i></button>
+                    <button id="reset-view-btn" class="bg-white/80 backdrop-blur-sm hover:bg-gray-100 text-gray-700 p-2 rounded-full shadow-md transition"><i data-lucide="locate" class="w-5 h-5"></i></button>
+                 </div>
             </div>
         </div>
         
     </div>
 
-    <!-- 상세 정보 박스 (우측 하단 고정 오버레이) -->
-    <div id="detail-box" class="fixed right-4 bottom-4 w-full max-w-sm bg-white rounded-xl shadow-2xl border-t-4 border-indigo-500 transition-transform duration-300 transform translate-y-full opacity-0 z-40 hidden">
+    <!-- Detail Info Modal/Bottom Sheet -->
+    <div id="detail-modal-overlay" class="fixed inset-0 bg-black/30 z-40 hidden transition-opacity duration-300"></div>
+    <div id="detail-modal" class="fixed z-50 hidden transition-all duration-300 w-full max-w-md p-6 bg-white rounded-t-2xl sm:rounded-xl shadow-2xl left-1/2 bottom-0 sm:bottom-auto sm:top-1/2 -translate-x-1/2 sm:-translate-y-1/2">
         <!-- Content will be injected here -->
     </div>
 
 
     <script>
-        // Apps Script 웹 앱 URL
+        // =========================================================
+        // INITIALIZATION & CONFIG
+        // =========================================================
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxutUIMVFENC6qT4kLeTUgkZxw31Mcu8mD_pHw5mMDj3OPixX-WycckTq3jl2wsepzjqw/exec";
-        
-        let rawData = [];
-        let filteredData = [];
-        // 기본 뷰가 트리 뷰이므로 false로 초기화 (true: Table View)
-        let isTableView = false; 
-        
-        // 정렬 상태 변수
-        let currentSortKey = ''; 
-        let sortDirection = 'none'; // 'asc', 'desc', 'none' 중 하나
 
-        const loadingState = document.getElementById('loading-state');
-        const dataContainer = document.getElementById('data-container');
-        const tableView = document.getElementById('table-view');
-        const treeView = document.getElementById('tree-view');
-        const tableHeader = document.getElementById('table-header');
-        const tableBody = document.getElementById('table-body');
-        const treeContainer = document.getElementById('tree-container');
-        const statusMessage = document.getElementById('status-message');
-        const refreshButton = document.getElementById('refresh-button');
-        const searchInput = document.getElementById('search-input');
-        const clearSearchButton = document.getElementById('clear-search-button');
-        const detailBox = document.getElementById('detail-box'); // 상세 정보 박스 DOM 요소
+        const DOM = {
+            loadingState: document.getElementById('loading-state'),
+            dataContainer: document.getElementById('data-container'),
+            tableView: document.getElementById('table-view'),
+            treeView: document.getElementById('tree-view'),
+            tableHeader: document.getElementById('table-header'),
+            tableBody: document.getElementById('table-body'),
+            treeContainer: document.getElementById('tree-container'),
+            statusMessage: document.getElementById('status-message'),
+            refreshButton: document.getElementById('refresh-button'),
+            refreshIcon: document.getElementById('refresh-icon'),
+            searchInput: document.getElementById('search-input'),
+            searchField: document.getElementById('search-field'),
+            viewToggle: document.getElementById('view-toggle'),
+            detailModal: document.getElementById('detail-modal'),
+            detailModalOverlay: document.getElementById('detail-modal-overlay'),
+            zoomInBtn: document.getElementById('zoom-in-btn'),
+            zoomOutBtn: document.getElementById('zoom-out-btn'),
+            resetViewBtn: document.getElementById('reset-view-btn'),
+        };
 
-        // 아이콘 초기화 (Lucide)
+        const appState = {
+            rawData: [],
+            filteredData: [],
+            isTableView: false,
+            currentSort: { key: '', direction: 'none' }, // 'asc', 'desc', 'none'
+            searchTerm: '',
+            searchField: '유저_ID',
+            d3: {
+                zoom: null,
+                svg: null,
+                g: null,
+                initialTransform: null
+            }
+        };
+
         window.onload = () => {
              lucide.createIcons();
-             fetchData();
+             initialize();
         };
-        
-        // =========================================================
-        // 상세 정보 박스 상호작용 로직 (연락처 위치 수정 사항 유지)
-        // =========================================================
-        
-        /**
-         * 노드 상세 정보 박스를 표시합니다.
-         */
-        function showDetailBox(data) {
-            if (data['유저_ID'] === 'ROOT') return; // 가상 루트 노드는 표시하지 않음
-            
-            // 컨텐츠 포맷 (줄바꿈 및 자동 줄바꿈을 위해 break-words 사용)
-            const content = `
-                <div class="p-6 relative">
-                    <!-- 닫기 버튼 -->
-                    <button class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 transition z-50" 
-                            onclick="closeDetailBox()">
-                        <i data-lucide="x" class="w-5 h-5"></i>
-                    </button>
 
-                    <!-- 제목: 성명 (ID) -->
-                    <h3 class="text-xl font-extrabold text-indigo-700 mb-4">${data['유저_이름']} (${data['유저_ID']})</h3>
-
-                    <!-- 지갑 주소 섹션 -->
-                    <div class="space-y-3">
-                        <!-- 1. 본인 지갑 주소 -->
-                        <div class="text-sm text-gray-600 break-words">
-                            <span class="font-semibold text-gray-800 block sm:inline">본인 지갑주소:</span> 
-                            <span class="text-indigo-500 block">${data['본인_지갑_주소']}</span>
-                        </div>
-                        
-                        <!-- 2. 상위 지갑 주소 -->
-                        <div class="text-sm text-gray-600 break-words">
-                            <span class="font-semibold text-gray-800 block sm:inline">상위 지갑주소:</span> 
-                            <span class="text-indigo-500 block">${data['상위_노드_지갑_주소'] || '없음 (최상위 노드)'}</span>
-                        </div>
-                        
-                        <!-- 3. 연락처 (위치 변경 유지) -->
-                        <p class="text-sm text-gray-600">
-                            <span class="font-semibold text-gray-800">연락처:</span> ${data['연락처'] || '정보 없음'}
-                        </p>
-                    </div>
-                    
-                    <div class="mt-6 pt-4 border-t border-gray-100 text-xs text-gray-400">
-                        직속 하위: ${data['직속_하위_수']}명 | 총 하위: ${data['총_하위_수']}명
-                    </div>
-                </div>
-            `;
-
-            detailBox.innerHTML = content;
-            lucide.createIcons(); // 동적으로 추가된 아이콘 다시 렌더링
-            
-            // 박스 보이기 및 슬라이드 효과 적용 (아래에서 위로)
-            detailBox.classList.remove('hidden');
-            void detailBox.offsetWidth; // Force reflow for transition
-            detailBox.classList.remove('translate-y-full', 'opacity-0');
-            detailBox.classList.add('translate-y-0', 'opacity-100');
+        function initialize() {
+            addEventListeners();
+            // 초기 뷰 설정 (체크박스 상태에 따라)
+            appState.isTableView = DOM.viewToggle.checked;
+            appState.searchField = DOM.searchField.value;
+            updatePlaceholder();
+            fetchData(false); // false: not a force refresh
         }
-
-        /**
-         * 유저 ID를 기반으로 상세 정보 박스를 표시하는 헬퍼 함수
-         */
-        function showDetailBoxById(userId) {
-            // filteredData에서 해당 ID를 가진 사용자 객체를 찾음
-            const data = filteredData.find(u => u['유저_ID'] === userId);
-            if (data) {
-                showDetailBox(data);
-            }
-        }
-        
-        /**
-         * 테이블 행 클릭 이벤트 핸들러
-         */
-        function handleTableRowClick(event, userId) {
-            event.stopPropagation(); // document 클릭 이벤트로의 전파를 막습니다.
-            showDetailBoxById(userId);
-        }
-
-        /**
-         * 노드 상세 정보 박스를 닫습니다. (X 버튼 클릭 또는 배경 클릭 시 호출)
-         */
-        function closeDetailBox() {
-            // 슬라이드 효과 적용 (위에서 아래로)
-            detailBox.classList.remove('translate-y-0', 'opacity-100');
-            detailBox.classList.add('translate-y-full', 'opacity-0');
-
-            // 트랜지션 완료 후 숨김 (300ms)
-            setTimeout(() => {
-                detailBox.classList.add('hidden');
-                detailBox.innerHTML = ''; // 컨텐츠 지우기
-            }, 300);
-        }
-
-        /**
-         * 문서 전체에 클릭 리스너를 추가하여 상세 박스 외의 영역을 클릭하면 닫히도록 처리
-         */
-        document.addEventListener('click', (event) => {
-            // 박스가 닫혀있거나 닫히는 중이면 로직 실행 안함
-            if (detailBox.classList.contains('hidden') || detailBox.classList.contains('opacity-0')) return;
-
-            // 클릭된 요소가 상세 박스 자체 또는 그 안에 포함된 요소인지 확인
-            const isClickedInsideBox = detailBox.contains(event.target);
-            
-            // 상세 박스 밖을 클릭했다면 닫기
-            if (!isClickedInsideBox) {
-                closeDetailBox();
-            }
-        });
 
         // =========================================================
-        // 기존 데이터 및 UI 로직 
+        // API & DATA HANDLING
         // =========================================================
-
-        // 한글 판별 헬퍼 함수
-        function isHangul(char) {
-            if (!char) return false;
-            const code = char.charCodeAt(0);
-            return code >= 0xAC00 && code <= 0xD7A3; // 한글 범위
-        }
-        
-        // 문자열 정렬 비교 로직 (한글/영문 우선순위 적용)
-        function compareAlphaNumeric(valA, valB, direction) {
-            const isHangulA = isHangul(valA.charAt(0));
-            const isHangulB = isHangul(valB.charAt(0));
-
-            if (direction === 'asc') {
-                if (isHangulA && !isHangulB) return -1; 
-                if (!isHangulA && isHangulB) return 1; 
-                return valA.localeCompare(valB, 'ko', { sensitivity: 'base' });
-            } else if (direction === 'desc') {
-                if (!isHangulA && isHangulB) return -1; 
-                if (isHangulA && !isHangulB) return 1;  
-                return valB.localeCompare(valA, 'ko', { sensitivity: 'base' });
-            }
-            return 0;
-        }
-
-        // 숫자 정렬 비교 로직
-        function compareNumber(numA, numB, direction) {
-            if (direction === 'asc') return numA - numB; 
-            if (direction === 'desc') return numB - numA; 
-            return 0;
-        }
-        
-        // 검색 필드 초기화 및 필터링 재실행
-        function clearSearch(event) {
-            if (event) event.preventDefault(); 
-            searchInput.value = '';
-            clearSearchButton.classList.add('hidden'); 
-            filterData(); 
-        }
-
-        /**
-         * 현재 검색 조건에 해당 데이터가 일치하는지 확인 (하이라이팅용)
-         */
-        function isMatch(user) {
-            const searchField = document.getElementById('search-field').value;
-            const searchTerm = searchInput.value.toLowerCase().trim();
-            
-            if (!searchTerm) return false;
-
-            // 검색 필드가 '유저_ID', '유저_이름', '연락처' 중 하나를 값 포함 여부(includes)로 확인
-            const valueToSearch = String(user[searchField] || '');
-            
-            return valueToSearch.toLowerCase().includes(searchTerm);
-        }
-
-        /**
-         * Google Apps Script API에서 데이터를 가져옵니다.
-         */
-        async function fetchData(forceRefresh = false) {
-            loadingState.classList.remove('hidden');
-            dataContainer.classList.add('hidden');
-            statusMessage.classList.add('hidden');
-            refreshButton.disabled = true;
+        async function fetchData(isForceRefresh = false) {
+            DOM.loadingState.classList.remove('hidden');
+            DOM.dataContainer.classList.add('hidden');
+            DOM.refreshButton.disabled = true;
+            DOM.refreshIcon.classList.add('spin');
 
             try {
                 const response = await fetch(SCRIPT_URL);
-                if (!response.ok) throw new Error(`HTTP 오류: ${response.status}`);
-                
+                if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
                 const data = await response.json();
-                if (data.error) throw new Error(`Apps Script 오류: ${data.error}`);
+                if (data.error) throw new Error(`API Error: ${data.error}`);
                 
-                // 데이터 정제: 숫자 필드를 숫자로 변환
-                rawData = data.map(user => ({
+                appState.rawData = data.map(user => ({
                     ...user,
                     '직속_하위_수': Number(user['직속_하위_수']),
                     '총_하위_수': Number(user['총_하위_수']),
-                    // D3.js 트리 생성을 위해 'children' 필드를 빈 배열로 초기화 (필수)
-                    children: [] 
                 }));
 
-                filteredData = [...rawData];
-                currentSortKey = '';
-                sortDirection = 'none';
+                DOM.dataContainer.classList.remove('hidden');
+                applyFiltersAndSort();
                 
-                // dataContainer를 먼저 보이게 하여 D3가 정확한 크기를 갖도록 함
-                dataContainer.classList.remove('hidden'); 
-
-                filterData(); // 데이터 로드 후 필터링/플레이스홀더 업데이트 및 뷰 렌더링을 위해 호출
-                
-                if(forceRefresh) showTransientMessage('데이터를 성공적으로 업데이트했습니다.', 'text-green-600 bg-green-50');
-
+                if (isForceRefresh) {
+                    showTransientMessage('데이터를 성공적으로 업데이트했습니다.', 'success');
+                }
             } catch (error) {
-                console.error("데이터 로드 중 오류 발생:", error);
-                showTransientMessage(`데이터 로드 실패: ${error.message}`, 'text-red-600 bg-red-50 border border-red-200');
-                dataContainer.classList.add('hidden');
+                console.error("Error fetching data:", error);
+                showTransientMessage(`데이터 로드 실패: ${error.message}`, 'error');
+                DOM.dataContainer.classList.add('hidden');
             } finally {
-                loadingState.classList.add('hidden');
-                refreshButton.disabled = false;
-                lucide.createIcons(); 
+                DOM.loadingState.classList.add('hidden');
+                DOM.refreshButton.disabled = false;
+                DOM.refreshIcon.classList.remove('spin');
             }
         }
         
-        /**
-         * 검색어에 따라 데이터를 필터링하고 테이블/트리를 다시 렌더링합니다.
-         */
-        function filterData() {
-            const searchField = document.getElementById('search-field').value; 
-            const searchTerm = searchInput.value.toLowerCase().trim();
+        // =========================================================
+        // STATE & FILTERING
+        // =========================================================
+        function applyFiltersAndSort() {
+            let data = [...appState.rawData];
 
-            // 1. 플레이스홀더 업데이트 로직
-            if (searchField === '유저_ID') {
-                searchInput.placeholder = '지갑주소 뒤 6자리';
-            } else {
-                searchInput.placeholder = '검색어를 입력하세요...';
-            }
-            
-            if (searchTerm) {
-                clearSearchButton.classList.remove('hidden');
-            } else {
-                clearSearchButton.classList.add('hidden');
-            }
-
-            // 2. 검색 필터 적용
-            let tempFilteredData = [];
-            if (!searchTerm) {
-                tempFilteredData = [...rawData];
-            } else {
-                tempFilteredData = rawData.filter(user => {
-                    // 선택된 필드에 따라 검색
-                    const valueToSearch = String(user[searchField]);
-                    return valueToSearch.toLowerCase().includes(searchTerm);
+            // 1. Filter by search term
+            if (appState.searchTerm) {
+                data = data.filter(user => {
+                    const value = String(user[appState.searchField] || '').toLowerCase();
+                    return value.includes(appState.searchTerm);
                 });
             }
-            
-            // 3. 현재 정렬 상태에 따라 필터링된 데이터를 정렬
-            filteredData = tempFilteredData; 
 
-            if (currentSortKey !== '' && sortDirection !== 'none') {
-                const keyToSort = currentSortKey;
-                const isNumericSort = ['직속_하위_수', '총_하위_수'].includes(keyToSort);
-
-                filteredData.sort((a, b) => {
-                    if (isNumericSort) {
-                        // compareNumber 함수는 direction 변수명을 사용하지 않고 sortDirection을 바로 사용하도록 수정 필요
-                        if (sortDirection === 'asc') return a[keyToSort] - b[keyToSort]; 
-                        if (sortDirection === 'desc') return b[keyToSort] - a[keyToSort]; 
-                        return 0;
+            // 2. Sort data
+            const { key, direction } = appState.currentSort;
+            if (key && direction !== 'none') {
+                const isNumeric = ['직속_하위_수', '총_하위_수'].includes(key);
+                data.sort((a, b) => {
+                    const valA = a[key];
+                    const valB = b[key];
+                    if (direction === 'asc') {
+                        return isNumeric ? valA - valB : String(valA).localeCompare(String(valB));
                     } else {
-                        // compareAlphaNumeric 함수는 direction 변수명을 사용하지 않고 sortDirection을 바로 사용하도록 수정 필요
-                        return compareAlphaNumeric(String(a[keyToSort] || ''), String(b[keyToSort] || ''), sortDirection);
+                        return isNumeric ? valB - valA : String(valB).localeCompare(String(valA));
                     }
                 });
             }
-
-            // 4. 뷰 업데이트
-            if (isTableView) {
-                renderTable(filteredData); 
-            } else {
-                // 조직도 뷰는 전체 데이터(rawData)에 하이라이팅만 적용합니다.
-                renderTree(rawData); 
-            }
+            
+            appState.filteredData = data;
+            renderCurrentView();
         }
         
-        /**
-         * 테이블 데이터를 3단계로 정렬합니다.
-         */
-        function sortTable(key) {
-            if (currentSortKey === key) {
-                if (sortDirection === 'asc') {
-                    sortDirection = 'desc';
-                } else if (sortDirection === 'desc') {
-                    currentSortKey = ''; 
-                    sortDirection = 'none'; 
-                } else {
-                    currentSortKey = key;
-                    sortDirection = 'asc';
+        function handleSort(key) {
+            const { currentSort } = appState;
+            if (currentSort.key === key) {
+                if (currentSort.direction === 'asc') currentSort.direction = 'desc';
+                else if (currentSort.direction === 'desc') {
+                    currentSort.key = '';
+                    currentSort.direction = 'none';
                 }
             } else {
-                currentSortKey = key;
-                sortDirection = 'asc';
+                currentSort.key = key;
+                currentSort.direction = 'asc';
             }
-            // 정렬 후 필터링 함수 호출 (필터링된 데이터를 정렬)
-            filterData(); 
+            applyFiltersAndSort();
+        }
+        
+        function updatePlaceholder() {
+            const placeholders = {
+                '유저_ID': '지갑주소 뒤 6자리',
+                '유저_이름': '이름으로 검색',
+                '연락처': '연락처로 검색'
+            };
+            DOM.searchInput.placeholder = placeholders[appState.searchField] || '검색...';
         }
 
-        /**
-         * 테이블 뷰를 렌더링합니다. (검색 일치 시 행 배경 회색 하이라이팅 적용)
-         */
-        function renderTable(data) {
-            // 정렬 가능한 헤더 (직대/총 하위는 유지)
-            const sortableKeys = ['유저_ID', '유저_이름', '직속_하위_수', '총_하위_수'];
-            const displayHeaders = [
-                { key: '유저_ID', label: 'ID' }, 
-                { key: '유저_이름', label: '성명' }, 
-                { key: '연락처', label: '연락처' },
-                { key: '직속_하위_수', label: '직대' }, 
-                { key: '총_하위_수', label: '총 하위' } 
+        // =========================================================
+        // UI RENDERING
+        // =========================================================
+        function renderCurrentView() {
+            if (appState.isTableView) {
+                DOM.tableView.classList.remove('hidden');
+                DOM.treeView.classList.add('hidden');
+                renderTable();
+            } else {
+                DOM.tableView.classList.add('hidden');
+                DOM.treeView.classList.remove('hidden');
+                renderTree();
+            }
+            lucide.createIcons();
+        }
+
+        function renderTable() {
+            const headers = [
+                { key: '유저_ID', label: 'ID', sortable: true },
+                { key: '유저_이름', label: '성명', sortable: true },
+                { key: '연락처', label: '연락처', sortable: false },
+                { key: '직속_하위_수', label: '직속 하위', sortable: true },
+                { key: '총_하위_수', label: '총 하위', sortable: true }
             ];
 
-            if (data.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="${displayHeaders.length}" class="text-center py-4 text-gray-500">
-                    데이터가 없거나 검색 결과가 없습니다.
-                </td></tr>`;
-                // 검색어 하이라이팅이 적용되지 않은 상태로 간주
-                const currentSearchTerm = searchInput.value.toLowerCase().trim();
-                if(currentSearchTerm) {
-                   tableBody.innerHTML = `<tr><td colspan="${displayHeaders.length}" class="text-center py-4 text-gray-500 bg-red-50 rounded-lg">
-                       검색어 "${currentSearchTerm}"와 일치하는 결과가 없습니다.
-                   </td></tr>`;
+            DOM.tableHeader.innerHTML = headers.map(({ key, label, sortable }) => {
+                let icon = '';
+                if (sortable) {
+                    if (appState.currentSort.key === key) {
+                        icon = appState.currentSort.direction === 'asc' 
+                            ? `<i data-lucide="arrow-up" class="w-4 h-4 text-indigo-600"></i>` 
+                            : `<i data-lucide="arrow-down" class="w-4 h-4 text-indigo-600"></i>`;
+                    } else {
+                        icon = `<i data-lucide="arrow-up-down" class="w-4 h-4 text-gray-400"></i>`;
+                    }
                 }
-                return;
-            }
-
-            // 헤더 렌더링 (이전과 동일)
-            tableHeader.innerHTML = displayHeaders.map(item => {
-                const isSortable = sortableKeys.includes(item.key);
-                const isCurrentSort = currentSortKey === item.key;
-                let sortIcon = '';
-                
-                if (isCurrentSort) {
-                    sortIcon = sortDirection === 'asc' 
-                        ? `<i data-lucide="arrow-up" class="w-4 h-4 ml-1 text-indigo-700"></i>` 
-                        : `<i data-lucide="arrow-down" class="w-4 h-4 ml-1 text-indigo-700"></i>`;
-                } else if (isSortable) {
-                    sortIcon = `<i data-lucide="arrow-up-down" class="w-4 h-4 ml-1 opacity-40"></i>`;
-                }
-
-                const headerClasses = isSortable 
-                    ? 'cursor-pointer hover:text-indigo-600 transition duration-150 ease-in-out flex items-center justify-center' 
-                    : 'flex items-center justify-center'; 
-
+                const classes = sortable ? 'cursor-pointer hover:bg-gray-100' : '';
                 return `
-                    <th scope="col" class="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                        <div class="${headerClasses}" onclick="${isSortable ? `sortTable('${item.key}')` : ''}">
-                            ${item.label}
-                            ${sortIcon}
-                        </div>
-                    </th>
-                `;
-            }).join('');
-
-            // 바디 렌더링 (하이라이팅 적용)
-            tableBody.innerHTML = data.map(user => {
-                const rowClick = `onclick="handleTableRowClick(event, '${user['유저_ID']}')"`;
-                
-                // 검색 일치 시 bg-gray-200 적용
-                const isHighlighted = isMatch(user); 
-                const rowClasses = isHighlighted ? 'bg-gray-200' : 'bg-white hover:bg-indigo-50';
-
-                return `
-                    <tr class="${rowClasses} transition duration-150 ease-in-out" ${rowClick}>
-                        ${displayHeaders.map(item => { 
-                            const displayValue = user[item.key];
-                            return `
-                                <td class="px-6 py-4 text-sm font-medium text-gray-900 text-center whitespace-nowrap">
-                                    ${displayValue}
-                                </td>
-                            `;
-                        }).join('')}
-                    </tr>
-                `;
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider ${classes}" onclick="${sortable ? `handleSort('${key}')` : ''}">
+                        <div class="flex items-center gap-2">${label} ${icon}</div>
+                    </th>`;
             }).join('');
             
-            lucide.createIcons(); 
+            if (appState.filteredData.length === 0) {
+                DOM.tableBody.innerHTML = `<tr><td colspan="${headers.length}" class="text-center py-10 text-gray-500">검색 결과가 없습니다.</td></tr>`;
+            } else {
+                DOM.tableBody.innerHTML = appState.filteredData.map(user => {
+                    return `
+                        <tr class="hover:bg-indigo-50 transition" onclick="showDetailModal('${user['유저_ID']}')">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">${user['유저_ID']}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${user['유저_이름']}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${user['연락처']}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-center">${user['직속_하위_수']}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-center">${user['총_하위_수']}</td>
+                        </tr>`;
+                }).join('');
+            }
+            lucide.createIcons();
         }
         
-        /**
-         * D3.js를 사용하여 인터랙티브 조직도(트리) 뷰를 렌더링합니다. (검색 일치 시 노드 배경 회색 하이라이팅 적용)
-         */
-        function renderTree(data) {
-            treeContainer.innerHTML = ''; // 컨테이너 초기화
-            closeDetailBox(); // 트리 렌더링 시 상세 박스 닫기
+        function renderTree() {
+            DOM.treeContainer.innerHTML = '';
+            if (appState.rawData.length === 0) return;
 
-            if (data.length === 0) {
-                treeContainer.innerHTML = '<p class="text-center py-10 text-gray-500">데이터가 없거나 유효한 루트를 찾을 수 없습니다.</p>';
-                return;
-            }
+            const dataMap = appState.rawData.reduce((map, node) => {
+                map[node['본인_지갑_주소']] = { ...node, children: [] };
+                return map;
+            }, {});
 
-            // 1. D3.js 트리 구조 생성 (데이터 전처리)
-            const tree = {};
-            
-            data.forEach(user => {
-                const wallet = user['본인_지갑_주소'];
-                
-                if (!tree[wallet]) {
-                    tree[wallet] = { ...user, children: [] };
+            const roots = [];
+            appState.rawData.forEach(node => {
+                const parentAddr = node['상위_노드_지갑_주소'];
+                if (parentAddr && dataMap[parentAddr] && parentAddr !== node['본인_지갑_주소']) {
+                    dataMap[parentAddr].children.push(dataMap[node['본인_지갑_주소']]);
                 } else {
-                    Object.assign(tree[wallet], { ...user });
+                    roots.push(dataMap[node['본인_지갑_주소']]);
                 }
             });
 
-            let roots = [];
-            
-            data.forEach(user => {
-                const wallet = user['본인_지갑_주소'];
-                const parent = user['상위_노드_지갑_주소'];
-                
-                const isRootNode = !parent || !tree[parent] || parent === wallet;
-
-                if (tree[parent] && parent !== wallet) {
-                    // 부모 노드에 자식을 추가 (순환 참조 방지)
-                    if (tree[parent].children.indexOf(tree[wallet]) === -1) {
-                         tree[parent].children.push(tree[wallet]);
-                    }
-                } else if (isRootNode) {
-                    // 루트 노드 식별
-                    if (!roots.includes(tree[wallet])) {
-                        roots.push(tree[wallet]);
-                    }
-                }
-            });
-            
-            // D3는 단일 루트를 기대하므로, 여러 루트가 있으면 가상 루트를 생성
-            let rootData;
-            if (roots.length > 1) {
-                rootData = {
-                    '유저_이름': 'Web3AK 전체 조직',
-                    '유저_ID': 'ROOT',
-                    '직속_하위_수': roots.length,
-                    '총_하위_수': data.length,
-                    children: roots
-                };
-            } else if (roots.length === 1) {
-                rootData = roots[0];
-            } else {
-                 treeContainer.innerHTML = '<p class="text-center py-10 text-gray-500">유효한 루트 노드를 찾을 수 없습니다.</p>';
+            const rootData = roots.length > 1 ? { '유저_이름': '전체 조직', '유저_ID': 'ROOT', children: roots } : roots[0];
+            if (!rootData) {
+                 DOM.treeContainer.innerHTML = '<p class="text-center py-10 text-gray-500">유효한 루트 노드를 찾을 수 없습니다.</p>';
                  return;
             }
 
-            // -----------------------------------------------------
-            // D3.js Visualization Setup (Zoom & Pan)
-            // -----------------------------------------------------
-
-            const nodeWidth = 150; 
-            const nodeHeight = 95;  
-            // 노드 간의 수직 간격: 140px 유지
-            const nodeSeparation = 140; 
-
-            // SVG 컨테이너 크기 설정 
-            const width = treeContainer.clientWidth;
-            const height = treeContainer.clientHeight;
-            // 캔버스 경계와 조직도 사이의 마진
-            const margin = { top: 1, right: 1, bottom: 1, left: 1 }; 
+            const width = DOM.treeContainer.clientWidth;
+            const height = DOM.treeContainer.clientHeight;
             
-            // 1. SVG 컨테이너 생성
-            const svg = d3.select(treeContainer).append("svg")
-                .attr("width", width)
-                .attr("height", height)
-                .attr("viewBox", `0 0 ${width} ${height}`)
-                .attr("preserveAspectRatio", "xMidYMid meet"); 
-
-            // D3 줌 객체 정의 (zoomBehavior)
-            const zoomBehavior = d3.zoom()
-                .scaleExtent([0.1, 4]) 
-                .on("zoom", (event) => {
-                    g.attr("transform", event.transform);
-                });
-
-            // 2. SVG에 줌 이벤트 핸들러를 연결하고, 더블클릭 방지
-            const svgGroup = svg.call(zoomBehavior)
-                .on("dblclick.zoom", null); 
-            
-            // 3. 모든 요소가 담길 그룹 <g> 생성
-            const g = svgGroup.append("g");
-
-            // 초기 위치 조정
-            const initialTranslateX = width / 2;
-            // 초기 Y 위치를 약간 아래로 조정하여 루트 노드가 상단에 걸리지 않도록 함 (예: 100px)
-            const initialTranslateY = 100; 
-
-            // 4. g 그룹을 초기 위치로 이동
-            g.attr("transform", `translate(${initialTranslateX}, ${initialTranslateY})`);
-
-            // 5. D3 줌 상태를 수동으로 설정한 초기 위치와 동기화 (***튀는 현상 방지 핵심***)
-            const initialTransform = d3.zoomIdentity.translate(initialTranslateX, initialTranslateY);
-            svgGroup.call(zoomBehavior.transform, initialTransform);
-
-
-            // 6. 트리 레이아웃 정의 (세로 구조)
-            const treeLayout = d3.tree()
-                // 노드 크기 정의: 수평 간격을 160px (노드 폭 150px + 여백 10px)로 설정
-                .nodeSize([nodeWidth + 10, nodeSeparation]); 
-
-            // 7. 계층 구조 생성 및 레이아웃 적용
+            const treeLayout = d3.tree().nodeSize([170, 140]);
             const root = d3.hierarchy(rootData);
             const treeData = treeLayout(root);
 
-            // 8. Links (연결선)
-            g.selectAll(".link")
-                .data(treeData.links())
-                .enter().append("path")
-                .attr("class", "link")
-                .attr("fill", "none")
-                .attr("stroke", "#9CA3AF") // Gray-400
-                .attr("stroke-width", 2)
-                .attr("d", d3.linkVertical()
-                    .x(d => d.x)
-                    .y(d => d.y));
+            appState.d3.svg = d3.select(DOM.treeContainer).append("svg")
+                .attr("width", width)
+                .attr("height", height)
+                .attr("viewBox", `0 0 ${width} ${height}`);
+                
+            appState.d3.g = appState.d3.svg.append("g");
 
-            // 9. Nodes (사용자 카드)
-            const node = g.selectAll(".node")
-                .data(treeData.descendants())
-                .enter().append("g")
-                .attr("class", d => "node" + (d.children ? " node--internal" : " node--leaf"))
+            appState.d3.zoom = d3.zoom().scaleExtent([0.1, 3]).on("zoom", (event) => {
+                appState.d3.g.attr("transform", event.transform);
+            });
+            
+            appState.d3.svg.call(appState.d3.zoom);
+
+            const initialX = width / 2;
+            const initialY = 100;
+            appState.d3.initialTransform = d3.zoomIdentity.translate(initialX, initialY).scale(0.8);
+            appState.d3.svg.call(appState.d3.zoom.transform, appState.d3.initialTransform);
+
+
+            appState.d3.g.selectAll(".link")
+                .data(treeData.links()).enter().append("path")
+                .attr("fill", "none").attr("stroke", "#d1d5db").attr("stroke-width", 2)
+                .attr("d", d3.linkVertical().x(d => d.x).y(d => d.y));
+
+            const node = appState.d3.g.selectAll(".node")
+                .data(treeData.descendants()).enter().append("g")
                 .attr("transform", d => `translate(${d.x},${d.y})`)
-                // 노드 클릭 이벤트: 전파를 막아 문서 전체 클릭 리스너가 닫기 동작을 수행하지 못하게 함.
+                .attr("cursor", d => d.data['유저_ID'] === 'ROOT' ? 'default' : 'pointer')
                 .on("click", (event, d) => {
-                    event.stopPropagation(); 
-                    showDetailBox(d.data);
-                }) 
-                .attr("cursor", "pointer");
+                    if (d.data['유저_ID'] !== 'ROOT') showDetailModal(d.data['유저_ID']);
+                });
 
-            // 10. 카드 배경 (직사각형) - 하이라이팅 적용
+            const nodeWidth = 150, nodeHeight = 90;
             node.append("rect")
-                .attr("width", nodeWidth)
-                .attr("height", nodeHeight)
-                .attr("x", -nodeWidth / 2) // X 중앙
-                .attr("y", -nodeHeight / 2) // Y 중앙
-                .attr("rx", 8) // 둥근 모서리
-                .attr("ry", 8)
-                // 하이라이팅 로직: isMatch(d.data)가 true면 회색(#E5E7EB), 아니면 흰색(#ffffff)
-                .attr("fill", d => isMatch(d.data) ? "#E5E7EB" : "#ffffff") 
-                .attr("stroke", d => d.data['유저_ID'] === 'ROOT' ? "#EAB308" : "#4F46E5") // 루트 강조
-                .attr("stroke-width", 3)
-                .attr("filter", "url(#shadow)"); // 그림자 필터 적용
-                
-            // 11. 텍스트 콘텐츠 (정보) - 3줄 구성: 성명 / ID / 직대-총하위
-            
-            // A. 성명 (Line 1): -15
-            node.append("text")
-                .attr("dy", "-15") 
-                .attr("text-anchor", "middle")
-                .attr("class", "text-base font-extrabold") // 성명 강조
-                .text(d => d.data['유저_이름'])
-                .attr("fill", "#1F2937"); 
+                .attr("width", nodeWidth).attr("height", nodeHeight)
+                .attr("x", -nodeWidth / 2).attr("y", -nodeHeight / 2)
+                .attr("rx", 8).attr("ry", 8)
+                .attr("fill", d => {
+                    const value = String(d.data[appState.searchField] || '').toLowerCase();
+                    return appState.searchTerm && value.includes(appState.searchTerm) ? '#e0e7ff' : '#ffffff';
+                })
+                .attr("stroke", d => d.data['유저_ID'] === 'ROOT' ? "#a5b4fc" : "#6366f1")
+                .attr("stroke-width", 2.5);
 
-            // B. ID (Line 2): 5
-            node.append("text")
-                .attr("dy", "5") 
-                .attr("text-anchor", "middle")
-                .attr("class", "text-sm font-medium")
-                .text(d => d.data['유저_ID'] !== 'ROOT' ? `${d.data['유저_ID']}` : '전체 조직 루트')
-                .attr("fill", "#4F46E5"); 
-                
-            // C. 직대 및 총 하위 (Line 3): 25
-            node.append("text")
-                .attr("dy", "25") 
-                .attr("text-anchor", "middle")
-                .attr("class", "text-xs font-semibold")
-                .text(d => d.data['유저_ID'] !== 'ROOT' 
-                    ? `직대: ${d.data['직속_하위_수']} / 총 하위: ${d.data['총_하위_수']}` 
-                    : `총 루트 하위: ${d.data['직속_하위_수']}`)
-                .attr("fill", "#4B5563"); 
-            
-            // 12. SVG 필터 (카드 그림자 효과) 정의
-            const defs = svg.append("defs");
-
-            defs.append("filter")
-                .attr("id", "shadow")
-                .attr("x", "-50%")
-                .attr("y", "-50%")
-                .attr("width", "200%")
-                .attr("height", "200%")
-                .append("feDropShadow")
-                .attr("dx", 0)
-                .attr("dy", 2)
-                .attr("stdDeviation", 3)
-                .attr("flood-color", "rgba(0,0,0,0.1)");
+            node.append("text").attr("dy", "-22").attr("text-anchor", "middle").style("font-size", "15px").style("font-weight", "800").attr("fill", "#111827").text(d => d.data['유저_이름']);
+            node.append("text").attr("dy", "0").attr("text-anchor", "middle").style("font-size", "13px").attr("fill", "#4f46e5").text(d => d.data['유저_ID'] !== 'ROOT' ? d.data['유저_ID'] : '');
+            node.append("text").attr("dy", "25").attr("text-anchor", "middle").style("font-size", "12px").attr("fill", "#4b5563")
+                .text(d => d.data['유저_ID'] !== 'ROOT' ? `직속:${d.data['직속_하위_수']} / 총:${d.data['총_하위_수']}` : `총원: ${appState.rawData.length}`);
         }
         
-        /**
-         * 테이블 뷰와 트리 뷰를 전환합니다.
-         */
-        function toggleView() {
-            const toggle = document.getElementById('view-toggle');
-            // 새 로직: 체크박스가 체크되면 isTableView가 true (지표 보기)
-            isTableView = toggle.checked; 
-            
-            if (isTableView) {
-                // 체크됨: 지표 보기 (Table View) 활성화
-                tableView.classList.remove('hidden');
-                treeView.classList.add('hidden');
-                renderTable(filteredData); 
-                closeDetailBox(); 
-            } else {
-                // 체크 안됨: 조직도 보기 (Tree View) 활성화
-                tableView.classList.add('hidden');
-                treeView.classList.remove('hidden');
-                // 조직도 렌더링 시에는 D3 상태를 재동기화해야 합니다.
-                renderTree(rawData); 
-            }
-        }
-        
-        /**
-         * 짧은 메시지를 사용자에게 표시합니다.
-         */
-        function showTransientMessage(message, className) {
-            statusMessage.innerHTML = message;
-            statusMessage.className = `mt-4 p-3 rounded-lg ${className}`;
-            statusMessage.classList.remove('hidden');
+        function showTransientMessage(message, type = 'info') {
+            const colors = {
+                success: 'bg-green-100 text-green-800',
+                error: 'bg-red-100 text-red-800',
+                info: 'bg-blue-100 text-blue-800'
+            };
+            DOM.statusMessage.innerHTML = `<div class="p-4 rounded-lg text-sm font-medium ${colors[type]}">${message}</div>`;
+            DOM.statusMessage.classList.remove('hidden', 'opacity-0');
+            DOM.statusMessage.classList.add('opacity-100');
 
             setTimeout(() => {
-                statusMessage.classList.add('hidden');
+                DOM.statusMessage.classList.remove('opacity-100');
+                DOM.statusMessage.classList.add('opacity-0');
+                setTimeout(() => DOM.statusMessage.classList.add('hidden'), 300);
             }, 5000);
         }
 
+        // =========================================================
+        // DETAIL MODAL
+        // =========================================================
+        function showDetailModal(userId) {
+            const user = appState.rawData.find(u => u['유저_ID'] === userId);
+            if (!user) return;
+
+            const content = `
+                <button onclick="hideDetailModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition"><i data-lucide="x" class="w-5 h-5"></i></button>
+                <h3 class="text-xl font-bold text-indigo-700 mb-1">${user['유저_이름']}</h3>
+                <p class="text-sm text-gray-500 mb-6">${user['유저_ID']}</p>
+                <div class="space-y-4 text-sm">
+                    <div>
+                        <label class="font-semibold text-gray-800 block mb-1">본인 지갑주소</label>
+                        <p class="text-indigo-600 bg-indigo-50 p-2 rounded-md break-all">${user['본인_지갑_주소']}</p>
+                    </div>
+                    <div>
+                        <label class="font-semibold text-gray-800 block mb-1">상위 지갑주소</label>
+                        <p class="text-gray-600 bg-gray-50 p-2 rounded-md break-all">${user['상위_노드_지갑_주소'] || '없음'}</p>
+                    </div>
+                     <div>
+                        <label class="font-semibold text-gray-800 block mb-1">연락처</label>
+                        <p class="text-gray-600">${user['연락처'] || '정보 없음'}</p>
+                    </div>
+                </div>
+                <div class="mt-6 pt-4 border-t border-gray-200 text-sm flex justify-around">
+                    <div class="text-center"><span class="font-bold block text-lg text-indigo-600">${user['직속_하위_수']}</span><span class="text-xs text-gray-500">직속 하위</span></div>
+                    <div class="text-center"><span class="font-bold block text-lg text-indigo-600">${user['총_하위_수']}</span><span class="text-xs text-gray-500">총 하위</span></div>
+                </div>
+            `;
+            DOM.detailModal.innerHTML = content;
+            lucide.createIcons();
+
+            DOM.detailModalOverlay.classList.remove('hidden');
+            DOM.detailModal.classList.remove('hidden');
+            
+            // For transition effect
+            requestAnimationFrame(() => {
+                 DOM.detailModalOverlay.classList.add('opacity-100');
+                 DOM.detailModal.classList.add(window.innerWidth < 640 ? 'bottom-sheet-enter-active' : 'modal-enter-active');
+                 DOM.detailModal.classList.remove(window.innerWidth < 640 ? 'bottom-sheet-enter' : 'modal-enter');
+            });
+        }
+        
+        function hideDetailModal() {
+            DOM.detailModalOverlay.classList.remove('opacity-100');
+            DOM.detailModal.classList.add(window.innerWidth < 640 ? 'bottom-sheet-exit-active' : 'modal-exit-active');
+            DOM.detailModal.classList.remove(window.innerWidth < 640 ? 'bottom-sheet-exit' : 'modal-exit');
+            
+            setTimeout(() => {
+                DOM.detailModalOverlay.classList.add('hidden');
+                DOM.detailModal.classList.add('hidden');
+                DOM.detailModal.className = 'fixed z-50 hidden transition-all duration-300 w-full max-w-md p-6 bg-white rounded-t-2xl sm:rounded-xl shadow-2xl left-1/2 bottom-0 sm:bottom-auto sm:top-1/2 -translate-x-1/2 sm:-translate-y-1/2'; // Reset classes
+                DOM.detailModal.innerHTML = '';
+            }, 300);
+        }
+
+        // =========================================================
+        // EVENT HANDLERS
+        // =========================================================
+        function addEventListeners() {
+            DOM.refreshButton.addEventListener('click', () => fetchData(true));
+            
+            DOM.searchInput.addEventListener('input', (e) => {
+                appState.searchTerm = e.target.value.toLowerCase().trim();
+                applyFiltersAndSort();
+            });
+
+            DOM.searchField.addEventListener('change', (e) => {
+                appState.searchField = e.target.value;
+                updatePlaceholder();
+                applyFiltersAndSort();
+            });
+
+            DOM.viewToggle.addEventListener('change', (e) => {
+                appState.isTableView = e.target.checked;
+                renderCurrentView();
+            });
+            
+            DOM.detailModalOverlay.addEventListener('click', hideDetailModal);
+            
+            // D3 Controls
+            DOM.zoomInBtn.addEventListener('click', () => {
+                appState.d3.svg.transition().duration(250).call(appState.d3.zoom.scaleBy, 1.3);
+            });
+            DOM.zoomOutBtn.addEventListener('click', () => {
+                appState.d3.svg.transition().duration(250).call(appState.d3.zoom.scaleBy, 0.7);
+            });
+            DOM.resetViewBtn.addEventListener('click', () => {
+                if(appState.d3.initialTransform) {
+                    appState.d3.svg.transition().duration(500).call(appState.d3.zoom.transform, appState.d3.initialTransform);
+                }
+            });
+        }
     </script>
 </body>
 </html>
