@@ -625,9 +625,9 @@
                 DOM.detailModal.classList.add('hidden');
                 
                 // 클래스 초기화 (다음 표시를 위해 초기 상태 클래스 재설정)
-                DOM.detailModal.className = 'fixed z-50 hidden transition-all duration-300 w-full max-w-sm p-6 bg-white ' +
-                                            'rounded-xl shadow-2xl right-4 bottom-4 ' +
-                                            'max-h-[80vh] overflow-y-auto slide-in-enter'; // 초기 상태 클래스 추가
+                DOM.detailModal.className = 'fixed z-50 hidden transition-all duration-300 w-full max-w-xs sm:max-w-sm p-6 bg-white ' +
+                                            'rounded-xl shadow-2xl left-4 right-4 sm:left-auto sm:right-4 bottom-4 ' + // 수정된 위치 클래스 적용
+                                            'max-h-[80vh] overflow-y-auto slide-in-enter'; // 수정된 너비 클래스 적용
                 DOM.detailModal.innerHTML = '';
             }, 400); // CSS transition duration과 일치
         }
